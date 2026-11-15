@@ -7,7 +7,8 @@ set -euo pipefail
 
 notes="${1:?usage: scripts/release.sh <file with the release notes>}"
 notes="$(realpath "$notes")"
-cd "$(dirname "$0")/.."
+# Works on the checkout it is run in, so a later version of this script can release an older tag.
+cd "$(git rev-parse --show-toplevel)"
 
 tag="$(git describe --tags --exact-match HEAD)" || { echo "HEAD is not a release tag" >&2; exit 1; }
 version="$(sed -n 's/^appVersion=//p' gradle.properties)"
@@ -16,7 +17,8 @@ version="$(sed -n 's/^appVersion=//p' gradle.properties)"
 
 # apksigner runs on Java.
 PATH="${JAVA_HOME:+$JAVA_HOME/bin:}$PATH"
-sdk="${ANDROID_HOME:-$(sed -n 's/^sdk.dir=//p' local.properties)}"
+sdk="${ANDROID_HOME:-$(sed -n 's/^sdk.dir=//p' local.properties 2>/dev/null)}"
+[ -d "$sdk/build-tools" ] || { echo "set ANDROID_HOME to the Android SDK" >&2; exit 1; }
 tools="$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 | sort -V | tail -1)"
 
 ./gradlew --console=plain verify :app:assembleRelease
@@ -28,7 +30,8 @@ apk="subfeed-browser-$tag.apk"
 cp app/build/outputs/apk/release/app-release.apk "$out/$apk"
 
 badging="$("$tools/aapt2" dump badging "$out/$apk")"
-field() { sed -n "s/.*$1='\([^']*\)'.*/\1/p" <<<"$badging" | head -1; }
+# aapt2 prints some attributes as name='value' and others as name:'value'.
+field() { sed -n "s/.*$1[=:]'\([^']*\)'.*/\1/p" <<<"$badging" | head -1; }
 signer="$("$tools/apksigner" verify --print-certs "$out/$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
 
 (cd "$out" && sha256sum "$apk" > SHA256SUMS)

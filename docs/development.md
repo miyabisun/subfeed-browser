@@ -100,7 +100,7 @@ adb -s DEVICE_SERIAL shell am start -n dev.miyabisun.subfeedbrowser/.MainActivit
 
 1. `gradle.properties` の `appVersion` を新しい版にしてcommitし、`vX.Y.Z` のタグを付けてpushします。
    `versionCode` は 主×1000000＋副×1000＋patch で、`appVersion` から作られます。
-2. タグをcheckoutした状態で、リリースノートのファイルを渡して実行します。
+2. タグをcheckoutしたディレクトリで、リリースノートのファイルを渡して実行します。
 
    ```sh
    scripts/release.sh /path/to/notes.md
