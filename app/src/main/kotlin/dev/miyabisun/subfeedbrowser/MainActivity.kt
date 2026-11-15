@@ -5,8 +5,13 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -29,6 +34,7 @@ class MainActivity :
     private lateinit var failure: View
     private lateinit var failureReason: TextView
     private lateinit var failureHost: TextView
+    private lateinit var failureHint: TextView
     private lateinit var changeUrl: Button
 
     private var askedForUrl = false
@@ -47,6 +53,7 @@ class MainActivity :
         failure = findViewById(R.id.failure)
         failureReason = findViewById(R.id.failure_reason)
         failureHost = findViewById(R.id.failure_host)
+        failureHint = findViewById(R.id.failure_hint)
         changeUrl = findViewById(R.id.change_url)
         val background = getColor(R.color.background)
         feedView.coverUntilFirstPaint(background)
@@ -63,6 +70,8 @@ class MainActivity :
 
     override fun onStart() {
         super.onStart()
+        getSystemService(ConnectivityManager::class.java)
+            .registerDefaultNetworkCallback(network, Handler(Looper.getMainLooper()))
         val url = settings.feedUrl
         when {
             url != null -> {
@@ -80,6 +89,7 @@ class MainActivity :
             }
         }
         browser.window = this
+        browser.foreground()
         render()
     }
 
@@ -89,6 +99,7 @@ class MainActivity :
     }
 
     override fun onStop() {
+        getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(network)
         browser.window = null
         super.onStop()
     }
@@ -109,6 +120,7 @@ class MainActivity :
         if (failed != null) {
             failureReason.setText(failed.reason.text)
             failureHost.text = WebAddress.parse(failed.url)?.host
+            failureHint.visibility = if (failed.reason.pointsAtConnection) View.VISIBLE else View.GONE
             changeUrl.visibility = if (page.screen == Screen.FEED) View.VISIBLE else View.GONE
         }
         progress.progress = page.progress
@@ -158,6 +170,23 @@ class MainActivity :
         }
     }
 
+    /** Tells the browser the network the app's pages load over, first right after it is registered. */
+    private val network =
+        object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(
+                network: Network,
+                capabilities: NetworkCapabilities,
+            ) = browser.network(
+                Link(
+                    network.networkHandle,
+                    TRANSPORTS.filter(capabilities::hasTransport).toSet(),
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                ),
+            )
+
+            override fun onLost(network: Network) = browser.network(null)
+        }
+
     private val LoadFailure.text
         get() =
             when (this) {
@@ -167,4 +196,16 @@ class MainActivity :
                 LoadFailure.INSECURE -> R.string.failure_insecure
                 LoadFailure.OTHER -> R.string.failure_other
             }
+
+    private companion object {
+        val TRANSPORTS =
+            listOf(
+                NetworkCapabilities.TRANSPORT_CELLULAR,
+                NetworkCapabilities.TRANSPORT_WIFI,
+                NetworkCapabilities.TRANSPORT_ETHERNET,
+                NetworkCapabilities.TRANSPORT_BLUETOOTH,
+                NetworkCapabilities.TRANSPORT_USB,
+                NetworkCapabilities.TRANSPORT_VPN,
+            )
+    }
 }

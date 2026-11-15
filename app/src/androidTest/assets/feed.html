@@ -23,6 +23,7 @@
       <a id="plain" href="https://www.youtube.com/watch?v=aqz-KE-bpKQ">plain link</a>
       <a id="new-window" href="https://example.com/" target="_blank">new window</a>
       <button id="shorts">shorts</button>
+      <button id="no-such-video">no such video</button>
     </div>
     <script>
       const VIDEOS = ["aqz-KE-bpKQ", "eRsGyueVLvQ", "R6MlUcmOul8"];
@@ -57,6 +58,10 @@
 
       document.getElementById("shorts").onclick = () =>
         send({ source: "youtube-sub-feed", type: "open-video", id: VIDEOS[0], url: `https://www.youtube.com/shorts/${VIDEOS[0]}` });
+
+      // A YouTube address no server answers: the video screen fails to load it.
+      document.getElementById("no-such-video").onclick = () =>
+        send({ source: "youtube-sub-feed", type: "open-video", id: VIDEOS[0], url: `https://no-such-host.youtube.com/watch?v=${VIDEOS[0]}` });
 
       // Counts the times this page was loaded on this device: it only grows if cookies survive a restart.
       const visits = Number(/(?:^|; )visits=(\d+)/.exec(document.cookie)?.[1] ?? 0) + 1;

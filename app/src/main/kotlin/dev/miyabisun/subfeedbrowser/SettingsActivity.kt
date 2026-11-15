@@ -29,6 +29,7 @@ class SettingsActivity : Activity() {
                 return
             }
             settings.feedUrl = url
+            Browser.of(this).feedSaved(url)
             // Land on the list, also when the app was not open behind this screen.
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
             finish()

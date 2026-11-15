@@ -6,8 +6,9 @@
     <string name="retry">再試行</string>
     <string name="change_url">URLを変更</string>
     <string name="failure_offline">ネットワークにつながっていません</string>
-    <string name="failure_address_not_found">アドレスが見つかりません</string>
+    <string name="failure_address_not_found">サーバーが見つかりません</string>
     <string name="failure_unreachable">サーバーに届きません</string>
     <string name="failure_insecure">安全に接続できません</string>
     <string name="failure_other">ページを開けません</string>
+    <string name="failure_hint">Wi-FiやVPNの接続を確かめてください。つながると自動で読み込みます。</string>
 </resources>

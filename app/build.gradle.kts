@@ -5,6 +5,9 @@ plugins {
 val appVersion: String = providers.gradleProperty("appVersion").get()
 val (major, minor, patch) = appVersion.split(".").map(String::toInt)
 
+// The devices this app is for are arm64. An emulator on a PC takes -Pabi=x86_64.
+val abi: String = providers.gradleProperty("abi").getOrElse("arm64-v8a")
+
 android {
     namespace = "dev.miyabisun.subfeedbrowser"
     compileSdk {
@@ -16,7 +19,7 @@ android {
         targetSdk = 37
         versionCode = major * 1_000_000 + minor * 1_000 + patch
         versionName = appVersion
-        ndk { abiFilters += "arm64-v8a" }
+        ndk { abiFilters += abi }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -41,7 +44,7 @@ android {
 }
 
 dependencies {
-    implementation(libs.geckoview)
+    implementation(libs.geckoview.map { "${it.module.group}:geckoview-$abi:${it.version}" })
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.junit)

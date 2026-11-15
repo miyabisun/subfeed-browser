@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -149,6 +151,103 @@ class AppTest {
         assertTrue(!shows(R.id.failure))
     }
 
+    @Test
+    fun loadsTheListByItselfOnceItIsWithinReachAndTheAppComesBack() {
+        val port = openFeedOutOfReach()
+        assertTrue("the connection is what to check first", shows(R.id.failure_hint))
+
+        // Still out of reach: coming back tries once, and the failure stays to be corrected.
+        val failed = onMain { browser.feed.failure }
+        comeBackToTheFront()
+        await("another try") { browser.feed.failure.let { it != null && it !== failed } }
+        val failedAgain = onMain { browser.feed.failure }
+        Thread.sleep(3_000)
+        assertSame("nothing keeps trying", failedAgain, onMain { browser.feed.failure })
+        assertTrue(shows(R.id.failure) && shows(R.id.change_url))
+
+        feed.start(port)
+        comeBackToTheFront()
+        assertEquals("the list loaded without a touch", "1", feed.report().videoHost)
+        assertTrue(!shows(R.id.failure))
+    }
+
+    @Test
+    fun loadsTheListByItselfOnceItIsWithinReachAndTheNetworkChanges() {
+        val port = openFeedOutOfReach()
+
+        val failed = onMain { browser.feed.failure }
+        onMain { browser.network(browser.link) }
+        Thread.sleep(3_000)
+        assertSame("the same network is no reason to try", failed, onMain { browser.feed.failure })
+
+        feed.start(port)
+        onMain { browser.network(ANOTHER_NETWORK) }
+        assertEquals("the list loaded without a touch", "1", feed.report().videoHost)
+        assertTrue(!shows(R.id.failure))
+    }
+
+    @Test
+    fun triesAVideoThatFailedAgainAndLeavesTheListAlone() {
+        val page = openFeed()
+        feed.click("no-such-video")
+        await("the failure of the video") { browser.video?.failure != null }
+        assertTrue("there is no address to correct for a video", shows(R.id.failure) && !shows(R.id.change_url))
+
+        val failed = onMain { browser.video?.failure }
+        onMain { browser.network(ANOTHER_NETWORK) }
+        await("another try after the network changed") { browser.video?.failure.let { it != null && it !== failed } }
+        val failedAgain = onMain { browser.video?.failure }
+        comeBackToTheFront()
+        await("another try after coming back") { browser.video?.failure.let { it != null && it !== failedAgain } }
+        assertEquals("the list was not loaded again", page.instance, feed.report().instance)
+    }
+
+    @Test
+    fun leavesAListThatShowsAloneWhenTheAppComesBackOrTheNetworkChanges() {
+        val page = openFeed()
+        feed.scrollTo(1500)
+        comeBackToTheFront()
+        onMain { browser.network(ANOTHER_NETWORK) }
+        onMain { browser.network(null) }
+        assertEquals("the list was neither reloaded nor moved", page.copy(scrollY = 1500), feed.report())
+    }
+
+    @Test
+    fun readsTheListAgainWhenItsAddressIsSaved() {
+        val page = openFeed()
+        save(openSettings(), feed.url)
+        val again = feed.reportAfter(page.instance)
+
+        val other = "${feed.url}&other"
+        save(openSettings(), other)
+        feed.reportAfter(again.instance)
+        assertEquals(other, onMain { browser.feed.url })
+    }
+
+    /** Start the app with a list nothing answers for. Returns the port a list can be started on. */
+    private fun openFeedOutOfReach(): Int {
+        val port = ServerSocket(0).use { it.localPort }
+        settings.feedUrl = "http://127.0.0.1:$port/feed.html?driven"
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        await("the failure") { shows(R.id.failure) }
+        await("the device's network") { browser.link != null }
+        return port
+    }
+
+    /** Leave the app and return to it, as going to the home screen and back does. */
+    private fun comeBackToTheFront() {
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+    }
+
+    private fun openSettings(): Activity {
+        val opening = instrumentation.addMonitor(SettingsActivity::class.java.name, null, false)
+        onActivity { it.startActivity(Intent(it, SettingsActivity::class.java)) }
+        val setup = opening.waitForActivityWithTimeout(10_000) ?: error("the settings did not open")
+        instrumentation.removeMonitor(opening)
+        return setup
+    }
+
     private fun openFeed(): FakeFeed.Report {
         feed.start()
         settings.feedUrl = feed.url
@@ -228,4 +327,9 @@ class AppTest {
     }
 
     private val Browser.videoUrl get() = video?.url.orEmpty()
+
+    private companion object {
+        /** A network the device is not on, to tell the app that its network changed. */
+        val ANOTHER_NETWORK = Link(network = -1, transports = emptySet(), validated = false)
+    }
 }

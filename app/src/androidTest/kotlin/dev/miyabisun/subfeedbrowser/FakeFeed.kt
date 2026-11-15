@@ -10,7 +10,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * A server with a page that stands in for youtube-sub-feed. The page reports its state several
- * times a second and runs the commands a test queues for it.
+ * times a second and runs the commands a test queues for it. Stopped, it is a list out of reach;
+ * started again on the same port, it is that list back within reach.
  */
 class FakeFeed {
     /** What the page said about itself. `instance` changes whenever the page is loaded again. */
@@ -20,7 +21,7 @@ class FakeFeed {
         val videoHost: String,
     )
 
-    private val server = MockWebServer()
+    private var server = MockWebServer()
     private val commands = LinkedBlockingQueue<String>()
     private val reports = LinkedBlockingQueue<Report>()
     private val page =
@@ -34,6 +35,7 @@ class FakeFeed {
     val url get() = "http://127.0.0.1:${server.port}/feed.html?driven"
 
     fun start(port: Int = 0) {
+        server = MockWebServer()
         server.dispatcher =
             object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse {
@@ -72,6 +74,16 @@ class FakeFeed {
     fun report(): Report {
         reports.clear()
         return reports.poll(20, TimeUnit.SECONDS) ?: error("the page stopped reporting")
+    }
+
+    /** The report of a page that was loaded after the one that calls itself `instance`. */
+    fun reportAfter(instance: String): Report {
+        val giveUp = System.currentTimeMillis() + 40_000
+        while (true) {
+            val report = report()
+            if (report.instance != instance) return report
+            check(System.currentTimeMillis() < giveUp) { "the page was not loaded again" }
+        }
     }
 
     fun click(id: String) = run("""{"click":"$id"}""")

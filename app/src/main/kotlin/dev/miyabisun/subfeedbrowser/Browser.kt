@@ -80,6 +80,10 @@ class Browser private constructor(
 
     private var feedUrl: String? = null
 
+    /** The network the device reported last. */
+    var link: Link? = null
+        private set
+
     // Pages load only once the extension listens, so the first page can already talk to the app.
     private var extensionReady = false
     private var afterExtension: (() -> Unit)? = null
@@ -144,13 +148,42 @@ class Browser private constructor(
         window?.render()
     }
 
+    /** The user saved the address of the list, changed or not: read it now. */
+    fun feedSaved(url: String) {
+        feedUrl = null
+        showFeed(url)
+        window?.render()
+    }
+
     /** Load the page in front again after it failed. */
     fun retry() {
-        val page = frontPage
+        reload(frontPage)
+        window?.render()
+    }
+
+    /** The app came back to the front. */
+    fun foreground() = nudge(Nudge.Foreground)
+
+    /** The device reported the network it is on; null is none. */
+    fun network(now: Link?) {
+        val before = link
+        link = now
+        nudge(Nudge.Network(before, now))
+    }
+
+    /** Pages that failed may be within reach now. Both screens: a video is not left failed behind the list. */
+    private fun nudge(nudge: Nudge) {
+        for (page in listOfNotNull(feed, video)) {
+            if (loadsAgain(page.failure != null, nudge)) reload(page)
+        }
+        window?.render()
+    }
+
+    private fun reload(page: Page) {
         val failed = page.failure ?: return
         page.failure = null
-        page.session.loadUri(failed.url)
-        window?.render()
+        // Past the engine's caches: it remembers for a while that a name did not resolve.
+        page.session.load(GeckoSession.Loader().uri(failed.url).flags(GeckoSession.LOAD_FLAGS_BYPASS_CACHE))
     }
 
     private fun extensionReady() {

@@ -5,6 +5,10 @@ import org.mozilla.geckoview.WebRequestError
 /** Why a page did not load, as far as the user can act on it. */
 enum class LoadFailure { OFFLINE, ADDRESS_NOT_FOUND, UNREACHABLE, INSECURE, OTHER }
 
+/** Whether the device's connection (Wi-Fi, VPN) is the first thing to check, before the address. */
+val LoadFailure.pointsAtConnection
+    get() = this == LoadFailure.OFFLINE || this == LoadFailure.ADDRESS_NOT_FOUND || this == LoadFailure.UNREACHABLE
+
 fun loadFailure(code: Int): LoadFailure =
     when (code) {
         WebRequestError.ERROR_OFFLINE -> LoadFailure.OFFLINE

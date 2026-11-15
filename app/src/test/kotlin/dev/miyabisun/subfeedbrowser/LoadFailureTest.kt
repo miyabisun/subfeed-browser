@@ -1,6 +1,8 @@
 package dev.miyabisun.subfeedbrowser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mozilla.geckoview.WebRequestError
 
@@ -20,5 +22,14 @@ class LoadFailureTest {
     fun fallsBackToAPlainFailure() {
         assertEquals(LoadFailure.OTHER, loadFailure(WebRequestError.ERROR_UNKNOWN))
         assertEquals(LoadFailure.OTHER, loadFailure(-1))
+    }
+
+    @Test
+    fun pointsAtTheConnectionWhenTheServerCouldNotBeFoundOrReached() {
+        assertTrue(LoadFailure.OFFLINE.pointsAtConnection)
+        assertTrue(LoadFailure.ADDRESS_NOT_FOUND.pointsAtConnection)
+        assertTrue(LoadFailure.UNREACHABLE.pointsAtConnection)
+        assertFalse(LoadFailure.INSECURE.pointsAtConnection)
+        assertFalse(LoadFailure.OTHER.pointsAtConnection)
     }
 }
