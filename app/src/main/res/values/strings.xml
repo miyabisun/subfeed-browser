@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">subfeed-browser</string>
+    <string name="feed_url">一覧のURL</string>
+    <string name="feed_url_invalid">http(s)のアドレスを入力してください</string>
+    <string name="save">保存</string>
+    <string name="retry">再試行</string>
+    <string name="change_url">URLを変更</string>
+    <string name="failure_offline">ネットワークにつながっていません</string>
+    <string name="failure_address_not_found">アドレスが見つかりません</string>
+    <string name="failure_unreachable">サーバーに届きません</string>
+    <string name="failure_insecure">安全に接続できません</string>
+    <string name="failure_other">ページを開けません</string>
+</resources>

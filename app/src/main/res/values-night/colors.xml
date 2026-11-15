@@ -1,0 +1,11 @@
+<resources>
+    <color name="background">#191919</color>
+    <color name="surface">#232323</color>
+    <color name="text">#e6e6e6</color>
+    <color name="muted">#9a9a9a</color>
+    <color name="border">#333333</color>
+    <color name="accent">#ea4335</color>
+    <color name="on_accent">#191919</color>
+    <color name="danger">#ff6b6b</color>
+    <bool name="light_bars">false</bool>
+</resources>

@@ -1,0 +1,4 @@
+<resources>
+    <!-- The width of a column of form fields: the whole screen on a phone (-1 is match_parent). -->
+    <item name="column_width" format="integer" type="dimen">-1</item>
+</resources>

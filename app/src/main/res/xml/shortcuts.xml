@@ -1,0 +1,11 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:icon="@drawable/shortcut_settings"
+        android:shortcutId="feed_url"
+        android:shortcutShortLabel="@string/feed_url">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="dev.miyabisun.subfeedbrowser.SettingsActivity"
+            android:targetPackage="dev.miyabisun.subfeedbrowser" />
+    </shortcut>
+</shortcuts>

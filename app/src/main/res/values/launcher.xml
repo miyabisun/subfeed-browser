@@ -1,0 +1,4 @@
+<resources>
+    <!-- Not themed: the launcher shows one icon in both light and dark. -->
+    <color name="launcher_background">#9a231b</color>
+</resources>

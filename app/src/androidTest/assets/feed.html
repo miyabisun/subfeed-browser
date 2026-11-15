@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fake feed</title>
+    <style>
+      body { margin: 0; font: 16px system-ui; background: #191919; color: #e6e6e6; }
+      #status { position: sticky; top: 0; padding: 8px 12px; background: #232323; }
+      .row { display: flex; align-items: center; gap: 12px; height: 120px; padding: 0 12px; border-bottom: 1px solid #333; }
+      button, a { min-height: 48px; padding: 0 12px; font: inherit; color: inherit; background: #333; border: 0; line-height: 48px; }
+    </style>
+  </head>
+  <body>
+    <!-- Stands in for youtube-sub-feed: it only sends the signals the real list would send. -->
+    <div id="status"></div>
+    <div id="rows"></div>
+    <div class="row">
+      <button id="other-site">other site</button>
+      <button id="other-shape">other shape</button>
+      <a id="intent" href="intent://www.youtube.com/watch?v=aqz-KE-bpKQ#Intent;scheme=vnd.youtube;package=com.google.android.youtube;end">intent:</a>
+      <a id="vnd" href="vnd.youtube:aqz-KE-bpKQ">vnd.youtube:</a>
+      <a id="plain" href="https://www.youtube.com/watch?v=aqz-KE-bpKQ">plain link</a>
+      <a id="new-window" href="https://example.com/" target="_blank">new window</a>
+      <button id="shorts">shorts</button>
+    </div>
+    <script>
+      const VIDEOS = ["aqz-KE-bpKQ", "eRsGyueVLvQ", "R6MlUcmOul8"];
+      const instance = Math.random().toString(36).slice(2, 8);
+
+      function send(message) {
+        window.postMessage(message, location.origin);
+      }
+      function openVideo(id) {
+        send({ source: "youtube-sub-feed", type: "open-video", id, url: `https://www.youtube.com/watch?v=${id}` });
+      }
+
+      const rows = document.getElementById("rows");
+      for (let n = 0; n < 40; n++) {
+        const id = VIDEOS[n % VIDEOS.length];
+        const row = document.createElement("div");
+        row.className = "row";
+        const button = document.createElement("button");
+        button.id = `open-${n}`;
+        button.textContent = `▶ ${n} (${id})`;
+        button.onclick = () => openVideo(id);
+        row.append(button);
+        rows.append(row);
+      }
+      document.getElementById("other-site").onclick = () =>
+        send({ source: "youtube-sub-feed", type: "open-video", id: "x", url: "https://example.com/watch?v=x" });
+      document.getElementById("other-shape").onclick = () => {
+        send({ source: "someone-else", type: "open-video", url: `https://www.youtube.com/watch?v=${VIDEOS[0]}` });
+        send({ source: "youtube-sub-feed", type: "open-video", url: [`https://www.youtube.com/watch?v=${VIDEOS[0]}`] });
+        send("open-video");
+      };
+
+      document.getElementById("shorts").onclick = () =>
+        send({ source: "youtube-sub-feed", type: "open-video", id: VIDEOS[0], url: `https://www.youtube.com/shorts/${VIDEOS[0]}` });
+
+      // Counts the times this page was loaded on this device: it only grows if cookies survive a restart.
+      const visits = Number(/(?:^|; )visits=(\d+)/.exec(document.cookie)?.[1] ?? 0) + 1;
+      document.cookie = `visits=${visits}; max-age=31536000; path=/`;
+
+      function status() {
+        const host = document.documentElement.dataset.videoHost ?? "none";
+        const scheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.getElementById("status").textContent =
+          `page ${instance} / visit ${visits} / data-video-host=${host} / ${scheme} / y=${Math.round(scrollY)}`;
+      }
+      addEventListener("scroll", status);
+      setInterval(status, 500);
+      status();
+
+      // A test drives the page through its server: it reports its state and runs what comes back.
+      if (location.search.includes("driven")) {
+        setInterval(async () => {
+          const host = document.documentElement.dataset.videoHost ?? "";
+          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}`);
+          const command = await response.json();
+          if (command.scrollTo !== undefined) scrollTo(0, command.scrollTo);
+          if (command.click) document.getElementById(command.click).click();
+          // A link only counts as tapped by the user when a real touch lands on it.
+          if (command.raise) Object.assign(document.getElementById(command.raise).style, { position: "fixed", inset: "0", zIndex: "10" });
+          if (command.lower) document.getElementById(command.lower).removeAttribute("style");
+        }, 200);
+      }
+    </script>
+  </body>
+</html>

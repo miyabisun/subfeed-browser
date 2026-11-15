@@ -1,0 +1,25 @@
+/* What this app removes from YouTube. Add selectors here. */
+
+/* Invitations to the YouTube app. Their links are for another app and go nowhere here. */
+a[href^="intent:"],
+a[href^="vnd.youtube:"],
+ytm-button-renderer:has(> a[href^="intent:"]) {
+  display: none !important;
+}
+
+/* The tabs along the bottom (Home, Shorts, Subscriptions, You). */
+ytm-pivot-bar-renderer {
+  display: none !important;
+}
+
+/* Shelves of Shorts. */
+ytm-reel-shelf-renderer,
+ytm-rich-section-renderer {
+  display: none !important;
+}
+
+/* Recommendations under a video. */
+ytm-watch .related-items-container,
+ytm-item-section-renderer[section-identifier="related-items"] {
+  display: none !important;
+}

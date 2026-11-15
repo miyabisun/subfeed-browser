@@ -1,0 +1,37 @@
+{
+  "manifest_version": 2,
+  "name": "subfeed-browser",
+  "version": "1.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "extension@subfeed-browser.miyabisun.dev"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": [
+        "*://*.youtube.com/*",
+        "*://youtu.be/*",
+        "*://*.youtube-nocookie.com/*",
+        "*://*.google.com/*",
+        "*://*.google.co.jp/*"
+      ],
+      "js": ["feed.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "css": ["youtube.css"],
+      "run_at": "document_start",
+      "js": ["youtube.js"]
+    }
+  ],
+  "permissions": [
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "geckoViewAddons",
+    "http://*/*",
+    "https://*/*"
+  ]
+}
