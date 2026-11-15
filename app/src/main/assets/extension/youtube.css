@@ -1,9 +1,11 @@
 /* What this app removes from YouTube. Add selectors here. */
 
-/* Invitations to the YouTube app. Their links are for another app and go nowhere here. */
+/* Invitations to the YouTube app. Their links are for another app and go nowhere here.
+   youtube.js marks the entry of a menu that has no link, by its label. */
 a[href^="intent:"],
 a[href^="vnd.youtube:"],
-ytm-button-renderer:has(> a[href^="intent:"]) {
+ytm-button-renderer:has(> a[href^="intent:"]),
+[data-open-app] {
   display: none !important;
 }
 
