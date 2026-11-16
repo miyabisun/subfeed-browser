@@ -15,9 +15,9 @@ cd subfeed-browser
 | 場所 | 内容 |
 | --- | --- |
 | `app/src/main/kotlin/` | アプリ本体。`Route.kt` がアドレスの振り分け、`Keep.kt` が一覧のどこまでをYouTubeの上に残すかと何で閉じるかの判断、`Reload.kt` が開けなかったページを読み込み直す判断、`Pull.kt` が引っ張って読み直してよいかの判断、`PullLayout.kt` がその操作と表示、`Browser.kt` がエンジンと2つの画面、`MainActivity.kt` が表示 |
-| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め（動画を開く合図、残す部分の下端と押されたことの報告）、`youtube.css` がYouTubeから取り除く部分、`comments.js` が動画の右の空いた列にコメント欄を開くかの判断と、欄が開いている間にYouTubeがページへ掛ける操作の禁止（`inert`）を外すか戻すかの判断、`youtube.js` が再生の開始、リンクを持たない「アプリを開く」への目印、ロゴを押してもYouTubeのトップへ移らないようにする処理、コメント欄を開く操作 |
+| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め（動画を開く合図、残す部分の下端と押されたことの報告）、`youtube.css` がYouTubeから取り除く部分、`comments.js` が動画の右の空いた列にコメント欄を開くかの判断と、欄が開いている間にYouTubeがページへ掛ける操作の禁止（`inert`）を外すか戻すかの判断、`pull.js` がプレイヤーの上から始まる指の動きをページの側で引き取る（アプリに引っ張りとして渡さない）かの判断、`youtube.js` が再生の開始、リンクを持たない「アプリを開く」への目印、ロゴを押してもYouTubeのトップへ移らないようにする処理、コメント欄を開く操作、プレイヤーの上の指の動きを引き取る操作 |
 | `app/src/test/kotlin/` | JVMの単体テスト |
-| `app/src/test/js/` | 拡張の判断（`comments.js`）のテスト。Node.jsのテストランナーで動かします |
+| `app/src/test/js/` | 拡張の判断（`comments.js`・`pull.js`）のテスト。Node.jsのテストランナーで動かします |
 | `app/src/androidTest/` | 端末で動かすテストと、一覧の代わりをするページ（`assets/feed.html`） |
 | `gradle/libs.versions.toml` | 依存の版。GeckoViewの版はここだけに書きます |
 | `gradle.properties` | アプリの版（`appVersion`） |
@@ -91,7 +91,7 @@ arm64の実機では `-Pabi` を付けません。配布するAPKもarm64だけ�
 ページがキャッシュから出ないよう、`Cache-Control: no-store` を返す一覧を使ってください。
 
 再生が始まること、YouTubeから取り除いた部分、全画面と回転は、実機の画面で確かめます。
-引っ張って読み直す操作は、動画のページ、プレイヤーの上、Shorts、全画面でも画面で確かめます。
+引っ張って読み直す操作は、動画のページ、プレイヤーの上（縦向きと、右に列が空く横向き）、Shorts、全画面でも画面で確かめます。
 ヘッダーを残す表示は、全画面、縦・横、キーボードを出した状態（YouTubeの検索、Googleのログインの入力欄）も画面で確かめます。
 横向きのタブレットの幅の動画のページは、右の列にコメント欄が開くこと、✕で閉じた後は開き直さないこと、
 コメント欄の中を下へ引いても読み直さないこと、縦向きでは開かないことを画面で確かめます。

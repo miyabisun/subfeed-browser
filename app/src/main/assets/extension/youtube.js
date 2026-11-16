@@ -163,6 +163,58 @@ new MutationObserver(lookAtHold).observe(document, {
   attributeFilter: ["inert", "engagement-panel-open"],
 });
 
+// In one column YouTube takes a touch on the player for its own. Beside a free column it leaves
+// the touch to the page, and the app took a move down from the player for a pull on the page
+// and read it again. pull.js decides which touches this script takes in YouTube's place, at
+// their first move: the engine tells the app then whose the touch is.
+const PLAYER = "#player-container-id, #player, .html5-video-player";
+let touchBegan = null;
+function onPlayer(target, touch) {
+  if (target instanceof Element && target.closest(PLAYER)) return true;
+  // Told by its place as well: YouTube builds its pages differently signed in and signed out.
+  const place = document.querySelector("video")?.getBoundingClientRect();
+  return (
+    place !== undefined &&
+    touch.clientX >= place.left &&
+    touch.clientX <= place.right &&
+    touch.clientY >= place.top &&
+    touch.clientY <= place.bottom
+  );
+}
+window.addEventListener(
+  "touchstart",
+  (event) => {
+    const touch = event.touches[0];
+    touchBegan = {
+      x: touch.clientX,
+      y: touch.clientY,
+      onPlayer: onPlayer(event.target, touch),
+    };
+  },
+  { capture: true, passive: true }
+);
+window.addEventListener(
+  "touchmove",
+  (event) => {
+    const began = touchBegan;
+    touchBegan = null;
+    if (!began || !event.cancelable) return;
+    const touch = event.touches[0];
+    const take = takesTouch({
+      beside: columnBeside(),
+      fullScreen: document.fullscreenElement !== null,
+      onPlayer: began.onPlayer,
+      fingers: event.touches.length,
+      scrolled: window.scrollY,
+      across: touch.clientX - began.x,
+      down: touch.clientY - began.y,
+    });
+    // The move still reaches the player: its own gestures stay as they are.
+    if (take) event.preventDefault();
+  },
+  { capture: true, passive: false }
+);
+
 // YouTube's logo leads to its home, away from the video the list opened. It stays to look at,
 // but a press on it goes nowhere. YouTube builds its top bar differently signed in and signed
 // out, so the logo is told by more than one sign: its element, a name that says logo, a link to
