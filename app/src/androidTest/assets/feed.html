@@ -6,14 +6,15 @@
     <title>fake feed</title>
     <style>
       body { margin: 0; font: 16px system-ui; background: #191919; color: #e6e6e6; }
-      #status { position: sticky; top: 0; padding: 8px 12px; background: #232323; }
+      #header { position: sticky; top: 0; box-sizing: border-box; overflow: hidden; background: #232323; }
+      #status { padding: 8px 12px; }
       .row { display: flex; align-items: center; gap: 12px; height: 120px; padding: 0 12px; border-bottom: 1px solid #333; }
       button, a { min-height: 48px; padding: 0 12px; font: inherit; color: inherit; background: #333; border: 0; line-height: 48px; }
     </style>
   </head>
   <body>
     <!-- Stands in for youtube-sub-feed: it only sends the signals the real list would send. -->
-    <div id="status"></div>
+    <header id="header"><div id="status"></div></header>
     <div id="rows"></div>
     <div class="row">
       <button id="other-site">other site</button>
@@ -67,6 +68,11 @@
       const visits = Number(/(?:^|; )visits=(\d+)/.exec(document.cookie)?.[1] ?? 0) + 1;
       document.cookie = `visits=${visits}; max-age=31536000; path=/`;
 
+      // The header counts the clicks it gets, to show the page still handles them.
+      const header = document.getElementById("header");
+      let presses = 0;
+      header.addEventListener("click", () => presses++);
+
       function status() {
         const host = document.documentElement.dataset.videoHost ?? "none";
         const scheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -81,10 +87,18 @@
       if (location.search.includes("driven")) {
         setInterval(async () => {
           const host = document.documentElement.dataset.videoHost ?? "";
-          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}`);
+          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}&presses=${presses}`);
           const command = await response.json();
           if (command.scrollTo !== undefined) scrollTo(0, command.scrollTo);
           if (command.click) document.getElementById(command.click).click();
+          // Mark the header to stay in view above a video and give it this height; 0 takes the mark off.
+          if (command.keep > 0) {
+            header.dataset.videoHostKeep = "";
+            header.style.height = `${command.keep}px`;
+          } else if (command.keep === 0) {
+            delete header.dataset.videoHostKeep;
+            header.style.height = "";
+          }
           // A link only counts as tapped by the user when a real touch lands on it.
           if (command.raise) Object.assign(document.getElementById(command.raise).style, { position: "fixed", inset: "0", zIndex: "10" });
           if (command.lower) document.getElementById(command.lower).removeAttribute("style");

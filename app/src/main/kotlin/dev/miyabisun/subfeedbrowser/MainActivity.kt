@@ -12,10 +12,12 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.SurfaceView
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import org.mozilla.geckoview.GeckoSession
@@ -38,6 +40,7 @@ class MainActivity :
     private lateinit var changeUrl: Button
 
     private var askedForUrl = false
+    private var focused: Screen? = null
     private var systemBars = WindowInsets.CONSUMED
 
     override fun onCreate(state: Bundle?) {
@@ -58,6 +61,13 @@ class MainActivity :
         val background = getColor(R.color.background)
         feedView.coverUntilFirstPaint(background)
         videoView.coverUntilFirstPaint(background)
+        // The list's header shows above a video, so both pages are on the screen at once:
+        // YouTube's surface goes over the list's.
+        for (n in 0 until videoView.childCount) (videoView.getChildAt(n) as? SurfaceView)?.setZOrderMediaOverlay(true)
+        // The room for the two pages changes with the keyboard and when the device turns.
+        feedView.addOnLayoutChangeListener { view, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) view.post(::render)
+        }
         findViewById<Button>(R.id.retry).setOnClickListener { browser.retry() }
         changeUrl.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -112,9 +122,18 @@ class MainActivity :
     }
 
     override fun render() {
-        show(feedView, browser.feed.session, browser.front == Screen.FEED)
-        show(videoView, browser.video?.session, browser.front == Screen.VIDEO)
         val page = browser.frontPage
+        val video = page.screen == Screen.VIDEO
+        // The top of the list that stays in view above YouTube: its header, if it marks one.
+        val kept = if (video) keptAbove(browser.keep, feedView.height, page.fullScreen) else 0
+        show(feedView, browser.feed.session, !video || kept > 0)
+        show(videoView, browser.video?.session, video)
+        for (view in listOf(videoView, progress, failure)) lower(view, kept)
+        if (focused != page.screen) {
+            // The keyboard types into the page in front, though the list may still show above it.
+            focused = page.screen
+            (if (video) videoView else feedView).requestFocus()
+        }
         val failed = page.failure
         failure.visibility = if (failed == null) View.GONE else View.VISIBLE
         if (failed != null) {
@@ -157,6 +176,17 @@ class MainActivity :
             if (session != null) view.setSession(session)
         }
         view.visibility = if (inFront) View.VISIBLE else View.INVISIBLE
+    }
+
+    /** Put what belongs to the page in front below the part of the list that stays in view. */
+    private fun lower(
+        view: View,
+        top: Int,
+    ) {
+        val place = view.layoutParams as FrameLayout.LayoutParams
+        if (place.topMargin == top) return
+        place.topMargin = top
+        view.layoutParams = place
     }
 
     /** Keep pages clear of the system bars and the keyboard, except a full-screen video. */

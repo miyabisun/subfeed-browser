@@ -26,6 +26,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.ServerSocket
+import kotlin.math.roundToInt
 
 /**
  * The app against a stand-in list and the real YouTube. It needs a network connection.
@@ -81,6 +82,43 @@ class AppTest {
         await("the list in front") { browser.front == Screen.FEED }
         assertEquals(page.copy(scrollY = 1500), feed.report())
         assertEquals("nothing left the app", 0, leavingTheApp.hits)
+    }
+
+    @Test
+    fun keepsTheHeaderOfTheListInViewAboveAVideo() {
+        openFeed()
+        feed.keep(56)
+        feed.click("open-0")
+        await("the video below the header") { videoTop() == pixels(56) }
+        assertTrue("both show", shows(R.id.feed) && shows(R.id.video))
+
+        feed.keep(120)
+        await("the video to follow the header") { videoTop() == pixels(120) }
+
+        feed.keep(0)
+        await("the video over the whole screen") { videoTop() == 0 }
+        assertTrue(shows(R.id.video) && !shows(R.id.feed))
+    }
+
+    @Test
+    fun returnsToTheListWhenItsHeaderIsPressed() {
+        val page = openFeed()
+        feed.keep(56)
+        feed.click("open-0")
+        await("the video below the header") { videoTop() == pixels(56) }
+
+        feed.click("header")
+        assertEquals("a click the page makes up is no press", 1, feed.report().presses)
+        assertEquals(Screen.VIDEO, onMain { browser.front })
+
+        touch(pixels(56) / 2f)
+        await("the list in front") { browser.front == Screen.FEED }
+        assertEquals("the page got the press too, and was not loaded again", page.copy(presses = 2), feed.report())
+        assertTrue(shows(R.id.feed) && !shows(R.id.video))
+
+        touch(pixels(56) / 2f)
+        assertEquals(3, feed.report().presses)
+        assertEquals("a press on the header of the list alone changes nothing", Screen.FEED, onMain { browser.front })
     }
 
     @Test
@@ -266,6 +304,12 @@ class AppTest {
     /** Touch a link of the list the way a finger does; scripts cannot open windows or other apps. */
     private fun tap(id: String) {
         feed.raise(id)
+        touch(null)
+        feed.lower(id)
+    }
+
+    /** Touch the list this far below its top, or in its middle. */
+    private fun touch(below: Float?) {
         val at = IntArray(2)
         var width = 0
         var height = 0
@@ -276,7 +320,7 @@ class AppTest {
             height = view.height
         }
         val x = at[0] + width / 2f
-        val y = at[1] + height / 2f
+        val y = at[1] + (below ?: (height / 2f))
         val now = SystemClock.uptimeMillis()
         for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
             val event = MotionEvent.obtain(now, now, action, x, y, 0)
@@ -284,8 +328,17 @@ class AppTest {
             instrumentation.sendPointerSync(event)
             event.recycle()
         }
-        feed.lower(id)
     }
+
+    /** How far below the list's top the YouTube screen starts. */
+    private fun videoTop(): Int {
+        var top = 0
+        onActivity { top = it.findViewById<View>(R.id.video).top - it.findViewById<View>(R.id.feed).top }
+        return top
+    }
+
+    /** A length in the page's pixels, in pixels of the screen. */
+    private fun pixels(length: Int) = (length * context.resources.displayMetrics.density).roundToInt()
 
     private fun back() = instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
 

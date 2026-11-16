@@ -14,8 +14,8 @@ cd subfeed-browser
 
 | 場所 | 内容 |
 | --- | --- |
-| `app/src/main/kotlin/` | アプリ本体。`Route.kt` がアドレスの振り分け、`Reload.kt` が開けなかったページを読み込み直す判断、`Browser.kt` がエンジンと2つの画面、`MainActivity.kt` が表示 |
-| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め、`youtube.css` がYouTubeから取り除く部分、`youtube.js` が再生の開始と、リンクを持たない「アプリを開く」への目印 |
+| `app/src/main/kotlin/` | アプリ本体。`Route.kt` がアドレスの振り分け、`Keep.kt` が一覧のどこまでをYouTubeの上に残すかと何で閉じるかの判断、`Reload.kt` が開けなかったページを読み込み直す判断、`Browser.kt` がエンジンと2つの画面、`MainActivity.kt` が表示 |
+| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め（動画を開く合図、残す部分の下端と押されたことの報告）、`youtube.css` がYouTubeから取り除く部分、`youtube.js` が再生の開始と、リンクを持たない「アプリを開く」への目印 |
 | `app/src/test/` | JVMの単体テスト |
 | `app/src/androidTest/` | 端末で動かすテストと、一覧の代わりをするページ（`assets/feed.html`） |
 | `gradle/libs.versions.toml` | 依存の版。GeckoViewの版はここだけに書きます |
@@ -68,6 +68,9 @@ arm64の実機では `-Pabi` を付けません。配布するAPKもarm64だけ�
 確かめる内容は次のとおりです。
 
 - 一覧の合図で動画を開き、戻ると一覧が読み込み直されず、同じ位置にあること。繰り返せること。
+- 一覧が目印を付けたヘッダーの下にYouTubeの画面が出て、ヘッダーの高さが変わると追従し、目印が無くなると全面に出ること。
+- ヘッダーへの本物のタッチでYouTubeの画面が閉じ、そのタッチが一覧のページにも届くこと。
+  ページのscriptが作ったクリックでは閉じないこと。
 - YouTubeへの通常のリンクも、YouTubeの画面で開くこと。
 - YouTube以外のアドレス、形の違うメッセージ、`intent:`・`vnd.youtube:` のリンクでは何も起きないこと。
 - 新しいタブで開くほかのサイトへのリンクが、既定のブラウザへ渡ること。
@@ -84,6 +87,7 @@ arm64の実機では `-Pabi` を付けません。配布するAPKもarm64だけ�
 ページがキャッシュから出ないよう、`Cache-Control: no-store` を返す一覧を使ってください。
 
 再生が始まること、YouTubeから取り除いた部分、全画面と回転は、実機の画面で確かめます。
+ヘッダーを残す表示は、全画面、縦・横、キーボードを出した状態（YouTubeの検索、Googleのログインの入力欄）も画面で確かめます。
 
 ## ADBでのインストール
 

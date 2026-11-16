@@ -19,6 +19,8 @@ class FakeFeed {
         val instance: String,
         val scrollY: Int,
         val videoHost: String,
+        /** The clicks its header got, pressed by the user or made up by a script. */
+        val presses: Int = 0,
     )
 
     private var server = MockWebServer()
@@ -51,6 +53,7 @@ class FakeFeed {
                                     address.queryParameter("instance").orEmpty(),
                                     address.queryParameter("y")?.toIntOrNull() ?: -1,
                                     address.queryParameter("host").orEmpty(),
+                                    address.queryParameter("presses")?.toIntOrNull() ?: 0,
                                 )
                             MockResponse()
                                 .setHeader(
@@ -89,6 +92,9 @@ class FakeFeed {
     fun click(id: String) = run("""{"click":"$id"}""")
 
     fun scrollTo(y: Int) = run("""{"scrollTo":$y}""")
+
+    /** Mark the header to stay in view above a video, this tall in the page's pixels. 0 takes the mark off. */
+    fun keep(height: Int) = run("""{"keep":$height}""")
 
     /** Spread an element over the whole page, so a touch anywhere lands on it. */
     fun raise(id: String) = run("""{"raise":"$id"}""")

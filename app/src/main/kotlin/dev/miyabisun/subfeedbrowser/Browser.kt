@@ -72,6 +72,10 @@ class Browser private constructor(
         private set
     val frontPage get() = video?.takeIf { front == Screen.VIDEO } ?: feed
 
+    /** Where the part of the list that stays in view above a video ends, as the list reported it. */
+    var keep = 0
+        private set
+
     var window: Window? = null
         set(value) {
             field = value
@@ -292,6 +296,14 @@ class Browser private constructor(
             }
         session.progressDelegate =
             object : GeckoSession.ProgressDelegate {
+                override fun onPageStart(
+                    session: GeckoSession,
+                    url: String,
+                ) {
+                    // What the list kept in view belongs to the page that is going away.
+                    if (screen == Screen.FEED) keep = 0
+                }
+
                 override fun onPageStop(
                     session: GeckoSession,
                     success: Boolean,
@@ -357,7 +369,11 @@ class Browser private constructor(
                 sender: WebExtension.MessageSender,
             ): GeckoResult<Any>? {
                 if (sender.session !== feed.session || !sender.isTopLevel || message !is JSONObject) return null
-                openVideoUrl(message.opt("type"), message.opt("url"))?.let(::openVideo)
+                val type = message.opt("type")
+                openVideoUrl(type, message.opt("url"))?.let(::openVideo)
+                keepBottom(type, message.opt("bottom"))?.let { keep = it }
+                if (closesVideo(type, front, frontPage.fullScreen)) closeVideo()
+                window?.render()
                 return null
             }
         }
