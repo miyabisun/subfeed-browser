@@ -58,3 +58,54 @@ new MutationObserver((changes) => {
     for (const node of change.addedNodes) markOpenApp(node);
   }
 }).observe(document, { subtree: true, childList: true, characterData: true });
+
+// YouTube's logo leads to its home, away from the video the list opened. It stays to look at,
+// but a press on it goes nowhere. YouTube builds its top bar differently signed in and signed
+// out, so the logo is told by more than one sign: its element, a name that says logo, a link to
+// the home page, or a label that starts with YouTube.
+const HOME_LOGO =
+  "ytm-home-logo, #home-icon, .mobile-topbar-logo, .mobile-topbar-header-endpoint";
+const TOP_BAR =
+  "header, [role=banner], ytm-mobile-topbar-renderer, .shorts-header";
+const HOME_LABEL = /^\s*YouTube(?!.*(検索|search))/i;
+function leadsHome(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.closest(HOME_LOGO)) return true;
+  const bar = target.closest(TOP_BAR);
+  // Only the bar along the top of the screen: other headers further down keep their links.
+  const place = bar?.getBoundingClientRect();
+  if (!place || place.top > 8 || place.height > 160) return false;
+  for (let part = target; part && part !== bar; part = part.parentElement) {
+    const names = `${part.localName} ${part.id} ${
+      part.getAttribute("class") ?? ""
+    }`;
+    if (/logo/i.test(names)) return true;
+    if (HOME_LABEL.test(part.getAttribute("aria-label") ?? "")) return true;
+    if (
+      part.localName === "a" &&
+      part.pathname === "/" &&
+      /youtube\.com$/.test(part.hostname)
+    )
+      return true;
+  }
+  return false;
+}
+// This script starts before the page's own, so these listeners hear a press first.
+for (const type of [
+  "click",
+  "pointerdown",
+  "pointerup",
+  "mousedown",
+  "mouseup",
+  "touchstart",
+  "touchend",
+])
+  window.addEventListener(
+    type,
+    (event) => {
+      if (!leadsHome(event.target)) return;
+      event.stopImmediatePropagation();
+      if (event.cancelable) event.preventDefault();
+    },
+    { capture: true, passive: false }
+  );

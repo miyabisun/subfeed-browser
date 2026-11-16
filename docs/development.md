@@ -15,7 +15,7 @@ cd subfeed-browser
 | 場所 | 内容 |
 | --- | --- |
 | `app/src/main/kotlin/` | アプリ本体。`Route.kt` がアドレスの振り分け、`Keep.kt` が一覧のどこまでをYouTubeの上に残すかと何で閉じるかの判断、`Reload.kt` が開けなかったページを読み込み直す判断、`Browser.kt` がエンジンと2つの画面、`MainActivity.kt` が表示 |
-| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め（動画を開く合図、残す部分の下端と押されたことの報告）、`youtube.css` がYouTubeから取り除く部分、`youtube.js` が再生の開始と、リンクを持たない「アプリを開く」への目印 |
+| `app/src/main/assets/extension/` | 内蔵の拡張。`feed.js` が一覧との取り決め（動画を開く合図、残す部分の下端と押されたことの報告）、`youtube.css` がYouTubeから取り除く部分、`youtube.js` が再生の開始、リンクを持たない「アプリを開く」への目印、ロゴを押してもYouTubeのトップへ移らないようにする処理 |
 | `app/src/test/` | JVMの単体テスト |
 | `app/src/androidTest/` | 端末で動かすテストと、一覧の代わりをするページ（`assets/feed.html`） |
 | `gradle/libs.versions.toml` | 依存の版。GeckoViewの版はここだけに書きます |

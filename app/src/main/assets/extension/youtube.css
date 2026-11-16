@@ -15,11 +15,6 @@ yt-list-item-view-model:has(a[href^="vnd.youtube:"]) {
   display: none !important;
 }
 
-/* The logo leads to YouTube's home, away from the video the list opened. It stays to look at. */
-ytm-home-logo {
-  pointer-events: none !important;
-}
-
 /* The tabs along the bottom (Home, Shorts, Subscriptions, You). */
 ytm-pivot-bar-renderer {
   display: none !important;
