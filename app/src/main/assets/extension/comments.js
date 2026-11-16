@@ -47,6 +47,26 @@ function leadsToComments(names) {
   return names.some((name) => name.startsWith("yt-comment-"));
 }
 
+/**
+ * What to do about the hold YouTube puts on the page under a panel: "lift" it, "restore" it,
+ * or null for nothing. While a panel is open YouTube makes the page under it take no press
+ * (`inert`), as under a dialog. In one column the panel covers the page. Beside the video it
+ * covers none of it, and the like button, the description and the rest must stay in reach.
+ *
+ * - `beside`: how wide a column YouTube keeps free beside the video, 0 in one column.
+ * - `panel`: a panel is showing, the comments or another.
+ * - `held`: the page has YouTube's hold on it now.
+ * - `lifted`: this script took the hold off, for the panels that are open now.
+ */
+function holdOnPage({ beside, panel, held, lifted }) {
+  // A hold with no panel is not a panel's, unless this script gave it back and the panel
+  // went away since: nobody else would lift that one.
+  if (!panel) return held && lifted ? "lift" : null;
+  if (beside > 0) return held ? "lift" : null;
+  // Turned upright with the panel open: it covers the page now, as YouTube means it to.
+  return lifted && !held ? "restore" : null;
+}
+
 // Node, for the tests. A content script has no module.
 if (typeof module === "object")
-  module.exports = { opensComments, leadsToComments };
+  module.exports = { opensComments, leadsToComments, holdOnPage };

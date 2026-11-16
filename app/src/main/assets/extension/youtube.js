@@ -72,24 +72,34 @@ function showing(element) {
     getComputedStyle(element).visibility !== "hidden"
   );
 }
+function watchPage() {
+  return location.pathname === "/watch"
+    ? document.querySelector("ytm-watch")
+    : null;
+}
+// How wide a column YouTube keeps free beside the video, 0 in one column.
+function columnBeside() {
+  const watch = watchPage();
+  return watch ? parseFloat(getComputedStyle(watch).marginRight) : 0;
+}
+function panelsShowing() {
+  return [...document.querySelectorAll("ytm-engagement-panel")].filter(showing);
+}
 function lookAtComments() {
   commentsLook = 0;
   const video = new URLSearchParams(location.search).get("v");
-  const watch =
-    location.pathname === "/watch" && document.querySelector("ytm-watch");
-  const beside = watch ? parseFloat(getComputedStyle(watch).marginRight) : 0;
+  const beside = columnBeside();
   // youtube.css keeps a pull inside the panel in that column from reading the page again.
   document.documentElement.toggleAttribute("data-comments-beside", beside > 0);
+  lookAtHold();
   if (video !== comments.video) {
     // YouTube changes videos without loading a page. What shows now may still be the last
     // one's: look again in a moment.
     Object.assign(comments, { video, seen: false, presses: 0, pressedAt: 0 });
     return lookAtCommentsSoon();
   }
-  if (!watch) return;
-  const panels = [...document.querySelectorAll("ytm-engagement-panel")].filter(
-    showing
-  );
+  if (!watchPage()) return;
+  const panels = panelsShowing();
   if (
     panels.some((panel) =>
       panel.querySelector(".engagement-panel-comments-section")
@@ -124,6 +134,34 @@ function lookAtCommentsSoon() {
 // Turning the device changes the columns without changing the page.
 window.addEventListener("resize", lookAtCommentsSoon);
 document.addEventListener("fullscreenchange", lookAtCommentsSoon);
+
+// While a panel is open, YouTube holds the page under it: `inert` on this element, the video's
+// title, buttons and description. Nothing in it takes a press then, though beside the video the
+// panel covers none of it. comments.js decides when the hold comes off and when it goes back.
+// The player and the top bar are outside this element; a dialog holds the whole app instead.
+const HELD_PAGE = ".page-container";
+let liftedHold = false;
+function lookAtHold() {
+  const page = document.querySelector(HELD_PAGE);
+  if (!page) return;
+  const panel = panelsShowing().length > 0;
+  const act = holdOnPage({
+    beside: columnBeside(),
+    panel,
+    held: page.hasAttribute("inert"),
+    lifted: liftedHold,
+  });
+  if (act === "lift") page.removeAttribute("inert");
+  if (act === "restore") page.setAttribute("inert", "");
+  liftedHold = panel && (liftedHold || act === "lift");
+}
+// YouTube holds the page again whenever a panel opens or closes over another. Its own mark of
+// an open panel changes just before it lets go.
+new MutationObserver(lookAtHold).observe(document, {
+  subtree: true,
+  attributes: true,
+  attributeFilter: ["inert", "engagement-panel-open"],
+});
 
 // YouTube's logo leads to its home, away from the video the list opened. It stays to look at,
 // but a press on it goes nowhere. YouTube builds its top bar differently signed in and signed

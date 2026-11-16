@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   opensComments,
   leadsToComments,
+  holdOnPage,
 } = require("../../main/assets/extension/comments.js");
 
 // A video on a wide screen, as YouTube first shows it: a free column beside it, nothing open.
@@ -110,4 +111,64 @@ test("does not take a notice or an advertisement in that box for the way in", ()
     false
   );
   assert.equal(leadsToComments([]), false);
+});
+
+// A panel open beside the video, as YouTube leaves the page then: held, nothing in it to press.
+const underPanel = { beside: 500, panel: true, held: true, lifted: false };
+
+test("lifts YouTube's hold on the page while a panel shows beside the video", () => {
+  assert.equal(holdOnPage(underPanel), "lift");
+  assert.equal(holdOnPage({ ...underPanel, beside: 256 }), "lift");
+  // YouTube holds the page again each time a panel opens or closes over another.
+  assert.equal(holdOnPage({ ...underPanel, lifted: true }), "lift");
+});
+
+test("has nothing to lift from a page that is not held", () => {
+  assert.equal(holdOnPage({ ...underPanel, held: false }), null);
+  assert.equal(holdOnPage({ ...underPanel, held: false, lifted: true }), null);
+});
+
+test("leaves YouTube's hold alone when a panel covers the page in one column", () => {
+  assert.equal(holdOnPage({ ...underPanel, beside: 0 }), null);
+});
+
+test("gives the hold back when the panel it lifted it for comes to cover the page", () => {
+  // The device was turned upright with the panel open.
+  assert.equal(
+    holdOnPage({ beside: 0, panel: true, held: false, lifted: true }),
+    "restore"
+  );
+  assert.equal(
+    holdOnPage({ beside: 0, panel: true, held: true, lifted: true }),
+    null
+  );
+});
+
+test("does not hold a page in one column that YouTube never held", () => {
+  assert.equal(
+    holdOnPage({ beside: 0, panel: true, held: false, lifted: false }),
+    null
+  );
+});
+
+test("leaves a hold that is not a panel's alone", () => {
+  // A dialog holds what it covers by itself.
+  assert.equal(holdOnPage({ ...underPanel, panel: false }), null);
+  assert.equal(
+    holdOnPage({ beside: 0, panel: false, held: false, lifted: true }),
+    null
+  );
+});
+
+test("takes back a hold it gave once no panel is left to give it for", () => {
+  // YouTube lets go of the page when a panel closes. Should it have done so before this
+  // script gave the hold back, nothing else would ever lift it.
+  assert.equal(
+    holdOnPage({ beside: 0, panel: false, held: true, lifted: true }),
+    "lift"
+  );
+  assert.equal(
+    holdOnPage({ beside: 500, panel: false, held: true, lifted: true }),
+    "lift"
+  );
 });
