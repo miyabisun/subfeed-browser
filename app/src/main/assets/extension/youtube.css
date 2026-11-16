@@ -43,3 +43,165 @@ html[data-comments-beside]
   .engagement-panel-content-wrapper {
   overscroll-behavior-y: contain;
 }
+
+/* The icons this app draws: the shape is a mask, the colour is the text colour around it. */
+ytm-home-logo::before,
+[data-subfeed-back]::before,
+#subfeed-stage button::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  mask: var(--subfeed-icon) center / contain no-repeat;
+}
+
+/* YouTube's logo leads to its home. In its place: the way back to the list (youtube.js takes
+   the press, and marks the logo where YouTube builds it under another name). */
+ytm-home-logo > *,
+[data-subfeed-back] > * {
+  display: none !important;
+}
+ytm-home-logo,
+[data-subfeed-back] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12H5M11 6l-6 6 6 6'/%3E%3C/svg%3E");
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 48px !important;
+  min-width: 48px;
+  height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+
+/* A phone on its side: the video has the whole screen (stage.js decides, youtube.js notes the
+   places on <html>). The page under the video is out of sight but still there: the icons press
+   its like button and open its comments. */
+html[data-stage],
+html[data-stage] body,
+html[data-stage] ytm-app {
+  background: #000 !important;
+  overflow: hidden !important;
+}
+html[data-stage] .mobile-topbar-header-background,
+html[data-stage] ytm-mobile-topbar-renderer,
+html[data-stage] .page-container {
+  visibility: hidden !important;
+}
+html[data-stage] #player-container-id {
+  position: fixed !important;
+  inset: var(--stage-top) auto auto var(--stage-left) !important;
+  width: var(--stage-width) !important;
+  height: var(--stage-height) !important;
+  max-height: none !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+/* YouTube sizes what is inside the player for its own page. */
+html[data-stage]
+  #player-container-id
+  :is(#player, #movie_player, .html5-video-container, video) {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+html[data-stage] #player-container-id video {
+  object-fit: contain !important;
+}
+/* The comments, and any other panel, open beside the video and scroll there by themselves:
+   on YouTube's own page a phone scrolls the page under them. Their text keeps out of the strip
+   the device keeps clear for its camera on that side, and takes no room on the other. */
+html[data-stage] ytm-engagement-panel {
+  position: fixed !important;
+  inset: 0 0 0 auto !important;
+  box-sizing: border-box !important;
+  width: var(--stage-panel) !important;
+  height: auto !important;
+  max-height: none !important;
+  padding: 0 env(safe-area-inset-right, 0px) 0 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  transform: none !important;
+}
+
+/* Their title and the way to close them stay at the top while they scroll, on the ground of
+   the panel around them. */
+html[data-stage]
+  ytm-engagement-panel
+  .engagement-panel-section-list-header-wrapper {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3;
+  background: inherit !important;
+}
+
+/* Over the player and under YouTube's own panels and dialogs. The padding takes up no room:
+   youtube.js reads from it the strips the device keeps clear for its camera. */
+#subfeed-stage {
+  position: fixed;
+  inset: 0 var(--stage-panel) 0 0;
+  z-index: 3;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  pointer-events: none;
+  color: #fff;
+}
+#subfeed-stage > div {
+  position: absolute;
+  right: var(--stage-pair-right);
+  bottom: var(--stage-pair-bottom);
+  display: flex;
+  gap: 8px;
+}
+#subfeed-stage button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  pointer-events: auto;
+}
+#subfeed-stage button:active {
+  background: rgb(255 255 255 / 0.2);
+}
+#subfeed-stage [hidden] {
+  display: none;
+}
+#subfeed-stage [data-stage="back"] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12H5M11 6l-6 6 6 6'/%3E%3C/svg%3E");
+  position: absolute;
+  top: var(--stage-back-top);
+  left: var(--stage-back-left);
+}
+#subfeed-stage [data-stage="like"] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M7 10.5v9.5H4.5a1 1 0 0 1-1-1v-7.5a1 1 0 0 1 1-1zM7 10.5l4-7.5a2.2 2.2 0 0 1 2.2 2.2V9h5.3a2 2 0 0 1 2 2.4l-1.3 7A2 2 0 0 1 17.2 20H7'/%3E%3C/svg%3E");
+}
+#subfeed-stage [data-stage="like"][aria-pressed="true"] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M7 10.5v9.5H4.5a1 1 0 0 1-1-1v-7.5a1 1 0 0 1 1-1zM7 10.5l4-7.5a2.2 2.2 0 0 1 2.2 2.2V9h5.3a2 2 0 0 1 2 2.4l-1.3 7A2 2 0 0 1 17.2 20H7'/%3E%3C/svg%3E");
+}
+#subfeed-stage [data-stage="comments"] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M4.5 4.5h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9.5l-4 3.5v-3.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z'/%3E%3C/svg%3E");
+}
+#subfeed-stage [data-stage="comments"][aria-pressed="true"] {
+  --subfeed-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M4.5 4.5h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9.5l-4 3.5v-3.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z'/%3E%3C/svg%3E");
+}
+/* Beside the video the pair stands one over the other, above or below it side by side. */
+html[data-stage="sides"] #subfeed-stage > div {
+  flex-direction: column;
+}
+html[data-stage="ends"] #subfeed-stage > div {
+  flex-direction: row;
+}

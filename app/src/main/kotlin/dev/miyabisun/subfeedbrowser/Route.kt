@@ -1,7 +1,10 @@
 package dev.miyabisun.subfeedbrowser
 
-/** The two screens of the app. */
-enum class Screen { FEED, VIDEO }
+/**
+ * The screens of the app: the list, YouTube in front of it, and a window that the list opened
+ * for Google, in front of both.
+ */
+enum class Screen { FEED, VIDEO, POPUP }
 
 /** Where an address that a screen was asked to open ends up. */
 sealed interface Route {
@@ -10,6 +13,14 @@ sealed interface Route {
 
     /** Open it in the YouTube screen. */
     data class Video(
+        val url: String,
+    ) : Route
+
+    /**
+     * Open it in a window of the app's own, joined to the page that asked for it. A sign-in
+     * there is the one YouTube has, and the window can answer the page that opened it.
+     */
+    data class Popup(
         val url: String,
     ) : Route
 
@@ -34,6 +45,11 @@ fun route(
             when {
                 address.isYouTube -> Route.Video(url)
 
+                // A window for Google is the list asking the user to sign in or to agree, and it
+                // waits for that window's answer. In another browser the user would sign in a
+                // second time, and the answer would never come back.
+                newWindow && address.isGoogle -> Route.Popup(url)
+
                 // The feed's own sign-in may pass through any site, so its redirects stay.
                 // A new window would replace the list, so it goes out instead.
                 newWindow -> Route.Browser(url)
@@ -42,7 +58,7 @@ fun route(
             }
         }
 
-        Screen.VIDEO -> {
+        Screen.VIDEO, Screen.POPUP -> {
             val outside = address.leavesYouTubeFor
             when {
                 // Loading YouTube's forwarding page here would leave an empty page behind.

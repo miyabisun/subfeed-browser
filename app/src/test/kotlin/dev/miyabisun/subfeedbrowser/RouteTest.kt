@@ -49,6 +49,41 @@ class RouteTest {
     }
 
     @Test
+    fun googleWindowsTheFeedOpensStayInTheApp() {
+        val consent =
+            "https://accounts.google.com/o/oauth2/v2/auth?client_id=x" +
+                "&redirect_uri=storagerelay%3A%2F%2Fhttps%2Ffeed.example"
+        assertEquals(
+            "the sign-in of the list shares the one YouTube has",
+            Route.Popup(consent),
+            route(Screen.FEED, consent, newWindow = true),
+        )
+        assertEquals(
+            Route.Popup("https://accounts.google.co.jp/signin"),
+            route(Screen.FEED, "https://accounts.google.co.jp/signin", newWindow = true),
+        )
+        assertEquals("in the same window it is the list's own sign-in", Route.Stay, route(Screen.FEED, consent))
+        assertEquals(
+            "a lookalike is another site",
+            Route.Browser("https://accounts.google.com.evil.example/"),
+            route(Screen.FEED, "https://accounts.google.com.evil.example/", newWindow = true),
+        )
+    }
+
+    @Test
+    fun aWindowOfTheAppKeepsGoogleAndYouTube() {
+        assertEquals(Route.Stay, route(Screen.POPUP, "https://accounts.google.com/v3/signin/challenge/pwd"))
+        assertEquals(Route.Stay, route(Screen.POPUP, "https://accounts.youtube.com/accounts/SetSID"))
+        assertEquals(
+            "what asks for one more window loads in place",
+            Route.Stay,
+            route(Screen.POPUP, "https://myaccount.google.com/", newWindow = true),
+        )
+        assertEquals(Route.Browser("https://shop.example/"), route(Screen.POPUP, "https://shop.example/"))
+        assertEquals(Route.Refuse, route(Screen.POPUP, "intent://accounts.google.com/#Intent;end"))
+    }
+
+    @Test
     fun youTubeLinksToOtherSitesGoStraightToTheBrowser() {
         val wrapped =
             "https://www.youtube.com/redirect?event=video_description&redir_token=abc" +

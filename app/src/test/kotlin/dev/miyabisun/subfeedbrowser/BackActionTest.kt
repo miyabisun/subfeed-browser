@@ -25,4 +25,10 @@ class BackActionTest {
         assertEquals(BackAction.GO_BACK, backAction(Screen.FEED, fullScreen = false, canGoBack = true))
         assertEquals(BackAction.CLOSE_APP, backAction(Screen.FEED, fullScreen = false, canGoBack = false))
     }
+
+    @Test
+    fun walksBackThroughAWindowOfTheAppThenClosesIt() {
+        assertEquals(BackAction.GO_BACK, backAction(Screen.POPUP, fullScreen = false, canGoBack = true))
+        assertEquals(BackAction.CLOSE_POPUP, backAction(Screen.POPUP, fullScreen = false, canGoBack = false))
+    }
 }

@@ -23,6 +23,10 @@ class FakeFeed {
         val presses: Int = 0,
         /** The pulls down from its top that reached the page. */
         val pulls: Int = 0,
+        /** What its select of groups is set to. */
+        val group: String = "",
+        /** How many pixels of the screen one of the page's pixels takes. */
+        val ratio: Double = 1.0,
     )
 
     private var server = MockWebServer()
@@ -57,6 +61,8 @@ class FakeFeed {
                                     address.queryParameter("host").orEmpty(),
                                     address.queryParameter("presses")?.toIntOrNull() ?: 0,
                                     address.queryParameter("pulls")?.toIntOrNull() ?: 0,
+                                    address.queryParameter("group").orEmpty(),
+                                    address.queryParameter("ratio")?.toDoubleOrNull() ?: 1.0,
                                 )
                             MockResponse()
                                 .setHeader(
@@ -98,6 +104,12 @@ class FakeFeed {
 
     /** Mark the header to stay in view above a video, this tall in the page's pixels. 0 takes the mark off. */
     fun keep(height: Int) = run("""{"keep":$height}""")
+
+    /** Open a menu this tall under the header, in the page's pixels. 0 closes it. */
+    fun menu(height: Int) = run("""{"menu":$height}""")
+
+    /** Move the list to another page of its own, without loading one. */
+    fun go(page: String) = run("""{"go":"$page"}""")
 
     /** Spread an element over the whole page, so a touch anywhere lands on it. */
     fun raise(id: String) = run("""{"raise":"$id"}""")

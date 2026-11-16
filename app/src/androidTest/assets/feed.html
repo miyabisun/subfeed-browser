@@ -6,8 +6,9 @@
     <title>fake feed</title>
     <style>
       body { margin: 0; font: 16px system-ui; background: #191919; color: #e6e6e6; }
-      #header { position: sticky; top: 0; box-sizing: border-box; overflow: hidden; background: #232323; }
-      #status { padding: 8px 12px; }
+      #header { position: sticky; top: 0; box-sizing: border-box; background: #232323; }
+      #menu { position: absolute; top: 100%; right: 0; width: 160px; background: #333; }
+      #status { padding: 8px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .row { display: flex; align-items: center; gap: 12px; height: 120px; padding: 0 12px; border-bottom: 1px solid #333; }
       button, a { min-height: 48px; padding: 0 12px; font: inherit; color: inherit; background: #333; border: 0; line-height: 48px; }
     </style>
@@ -27,6 +28,8 @@
       <button id="no-such-video">no such video</button>
       <button id="channel">channel</button>
       <button id="sign-in">sign in</button>
+      <button id="google-window">google window</button>
+      <select id="group"><option value="">all</option><option value="1">one</option><option value="2">two</option></select>
     </div>
     <script>
       const VIDEOS = ["aqz-KE-bpKQ", "eRsGyueVLvQ", "R6MlUcmOul8"];
@@ -72,6 +75,10 @@
       document.getElementById("sign-in").onclick = () =>
         send({ source: "youtube-sub-feed", type: "open-video", id: "x", url: "https://www.youtube.com/signin" });
 
+      // What the real list does to ask Google whether it may read the user's subscriptions: a window of its own.
+      document.getElementById("google-window").onclick = () =>
+        window.open("https://accounts.google.com/o/oauth2/v2/auth?client_id=subfeed-browser-test&response_type=token&scope=email&redirect_uri=https%3A%2F%2Fexample.com%2F");
+
       // Counts the times this page was loaded on this device: it only grows if cookies survive a restart.
       const visits = Number(/(?:^|; )visits=(\d+)/.exec(document.cookie)?.[1] ?? 0) + 1;
       document.cookie = `visits=${visits}; max-age=31536000; path=/`;
@@ -104,7 +111,8 @@
       if (location.search.includes("driven")) {
         setInterval(async () => {
           const host = document.documentElement.dataset.videoHost ?? "";
-          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}&presses=${presses}&pulls=${pulls}`);
+          const group = document.getElementById("group").value;
+          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}&presses=${presses}&pulls=${pulls}&group=${group}&ratio=${devicePixelRatio}`);
           const command = await response.json();
           if (command.scrollTo !== undefined) scrollTo(0, command.scrollTo);
           if (command.click) document.getElementById(command.click).click();
@@ -116,6 +124,18 @@
             delete header.dataset.videoHostKeep;
             header.style.height = "";
           }
+          // Open a menu this tall under the header, as the real list's header does; 0 closes it.
+          if (command.menu !== undefined) {
+            document.getElementById("menu")?.remove();
+            if (command.menu > 0) {
+              const menu = document.createElement("div");
+              menu.id = "menu";
+              menu.style.height = `${command.menu}px`;
+              header.append(menu);
+            }
+          }
+          // Move to another page of the list without loading one, as picking a group does.
+          if (command.go) history.pushState({}, "", `${location.pathname}${location.search}#${command.go}`);
           // A link only counts as tapped by the user when a real touch lands on it.
           if (command.raise) Object.assign(document.getElementById(command.raise).style, { position: "fixed", inset: "0", zIndex: "10" });
           if (command.lower) document.getElementById(command.lower).removeAttribute("style");

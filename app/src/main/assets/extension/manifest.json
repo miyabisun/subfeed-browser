@@ -24,7 +24,13 @@
       "matches": ["*://*.youtube.com/*"],
       "css": ["youtube.css"],
       "run_at": "document_start",
-      "js": ["comments.js", "pull.js", "youtube.js"]
+      "js": [
+        "comments.js",
+        "pull.js",
+        "stage.js",
+        "invitation.js",
+        "youtube.js"
+      ]
     }
   ],
   "permissions": [

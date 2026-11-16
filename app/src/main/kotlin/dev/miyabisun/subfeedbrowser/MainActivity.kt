@@ -1,6 +1,7 @@
 package dev.miyabisun.subfeedbrowser
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -14,8 +15,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ProgressBar
@@ -32,6 +35,7 @@ class MainActivity :
     private lateinit var root: View
     private lateinit var feedView: GeckoView
     private lateinit var videoView: GeckoView
+    private lateinit var popupView: GeckoView
     private lateinit var pull: PullLayout
     private lateinit var progress: ProgressBar
     private lateinit var failure: View
@@ -39,6 +43,10 @@ class MainActivity :
     private lateinit var failureHost: TextView
     private lateinit var failureHint: TextView
     private lateinit var changeUrl: Button
+
+    /** The question of a page that is up for the user to answer, if any. */
+    internal var asking: AlertDialog? = null
+        private set
 
     private var askedForUrl = false
     private var focused: Screen? = null
@@ -53,6 +61,7 @@ class MainActivity :
         root = findViewById(android.R.id.content)
         feedView = findViewById(R.id.feed)
         videoView = findViewById(R.id.video)
+        popupView = findViewById(R.id.popup)
         pull = findViewById(R.id.pull)
         progress = findViewById(R.id.progress)
         failure = findViewById(R.id.failure)
@@ -63,6 +72,7 @@ class MainActivity :
         val background = getColor(R.color.background)
         feedView.coverUntilFirstPaint(background)
         videoView.coverUntilFirstPaint(background)
+        popupView.coverUntilFirstPaint(background)
         // The list's header shows above a video, so both pages are on the screen at once:
         // YouTube's surface goes over the list's.
         for (n in 0 until videoView.childCount) (videoView.getChildAt(n) as? SurfaceView)?.setZOrderMediaOverlay(true)
@@ -121,18 +131,26 @@ class MainActivity :
 
     override fun onDestroy() {
         // The sessions stay with the browser; a rebuilt Activity picks them up again.
+        // A page whose question goes down with the Activity hears that nothing was answered.
+        asking?.dismiss()
         feedView.releaseSession()
         videoView.releaseSession()
+        popupView.releaseSession()
         super.onDestroy()
     }
 
     override fun render() {
         val page = browser.frontPage
+        // A window the list opened covers the list and YouTube; they come back when it closes.
+        val popup = page.screen == Screen.POPUP
         val video = page.screen == Screen.VIDEO
-        // The top of the list that stays in view above YouTube: its header, if it marks one.
-        val kept = if (video) keptAbove(browser.keep, feedView.height, page.fullScreen) else 0
-        show(feedView, browser.feed.session, !video || kept > 0)
+        val immersive = browser.immersive
+        // The top of the list that stays in view above YouTube: its header, if it marks one,
+        // and what the header has opened under itself.
+        val kept = if (video) keptAbove(browser.keep, browser.keepOver, feedView.height, immersive) else 0
+        show(feedView, browser.feed.session, !popup && (!video || kept > 0))
         show(videoView, browser.video?.session, video)
+        show(popupView, browser.popup?.session, popup)
         pull.visibility = videoView.visibility
         for (view in listOf(pull, progress, failure)) lower(view, kept)
         // The indicator turns until the page is read again; the layout takes no pull meanwhile.
@@ -142,7 +160,11 @@ class MainActivity :
         if (focused != page.screen) {
             // The keyboard types into the page in front, though the list may still show above it.
             focused = page.screen
-            (if (video) videoView else feedView).requestFocus()
+            when (page.screen) {
+                Screen.FEED -> feedView
+                Screen.VIDEO -> videoView
+                Screen.POPUP -> popupView
+            }.requestFocus()
         }
         val failed = page.failure
         failure.visibility = if (failed == null) View.GONE else View.VISIBLE
@@ -157,7 +179,7 @@ class MainActivity :
         window.insetsController?.let { bars ->
             bars.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             val all = WindowInsets.Type.systemBars()
-            if (page.fullScreen) bars.hide(all) else bars.show(all)
+            if (immersive) bars.hide(all) else bars.show(all)
         }
         pad()
     }
@@ -175,6 +197,86 @@ class MainActivity :
     }
 
     override fun close() = finish()
+
+    override fun choose(
+        title: String?,
+        rows: List<ChoiceRow>,
+        many: Boolean,
+        done: (List<String>?) -> Unit,
+    ) {
+        val labels = rows.map { it.label }
+        val builder = AlertDialog.Builder(this).setTitle(title?.takeIf(String::isNotBlank))
+        var picked: List<String>? = null
+        if (many) {
+            val checked = rows.map { it.checked }.toBooleanArray()
+            builder
+                .setMultiChoiceItems(labels.toTypedArray(), checked) { _, row, on -> checked[row] = on }
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    picked = rows.filterIndexed { row, _ -> checked[row] }.mapNotNull { it.id }
+                }.setNegativeButton(android.R.string.cancel, null)
+        } else {
+            // The name of a group and an option the page turned off show, greyed, and take no press.
+            val lines =
+                object : ArrayAdapter<String>(this, android.R.layout.select_dialog_singlechoice, labels) {
+                    override fun areAllItemsEnabled() = false
+
+                    override fun isEnabled(row: Int) = rows[row].id != null
+
+                    override fun getView(
+                        row: Int,
+                        reused: View?,
+                        parent: ViewGroup,
+                    ) = super.getView(row, reused, parent).also { it.isEnabled = isEnabled(row) }
+                }
+            builder.setSingleChoiceItems(lines, rows.indexOfFirst { it.checked }) { dialog, row ->
+                picked = listOfNotNull(rows[row].id)
+                dialog.dismiss()
+            }
+        }
+        val dialog = builder.create()
+        put(dialog) { done(picked) }
+    }
+
+    override fun tell(
+        message: String?,
+        done: () -> Unit,
+    ) = put(
+        AlertDialog
+            .Builder(this)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .create(),
+        done,
+    )
+
+    override fun ask(
+        message: String?,
+        done: (Boolean?) -> Unit,
+    ) {
+        var agreed: Boolean? = null
+        val dialog =
+            AlertDialog
+                .Builder(this)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok) { _, _ -> agreed = true }
+                .setNegativeButton(android.R.string.cancel) { _, _ -> agreed = false }
+                .create()
+        put(dialog) { done(agreed) }
+    }
+
+    /** Put a page's question up. However it goes away, the page hears `gone` once. */
+    private fun put(
+        dialog: AlertDialog,
+        gone: () -> Unit,
+    ) {
+        asking?.dismiss()
+        asking = dialog
+        dialog.setOnDismissListener {
+            if (asking === dialog) asking = null
+            gone()
+        }
+        dialog.show()
+    }
 
     private fun show(
         view: GeckoView,
@@ -199,12 +301,16 @@ class MainActivity :
         view.layoutParams = place
     }
 
-    /** Keep pages clear of the system bars and the keyboard, except a full-screen video. */
+    /**
+     * Keep pages clear of the system bars and the keyboard. A video that has the whole screen
+     * goes under the bars and around the camera, and only makes way for the keyboard.
+     */
     private fun pad() {
-        val types = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime()
+        val keyboard = WindowInsets.Type.ime()
+        val types = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or keyboard
         val inset = systemBars.getInsets(types)
-        if (browser.frontPage.fullScreen) {
-            root.setPadding(0, 0, 0, 0)
+        if (browser.immersive) {
+            root.setPadding(0, 0, 0, systemBars.getInsets(keyboard).bottom)
         } else {
             root.setPadding(inset.left, inset.top, inset.right, inset.bottom)
         }

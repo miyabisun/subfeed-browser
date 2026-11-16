@@ -21,7 +21,8 @@ window.addEventListener("message", (event) => {
 });
 
 // What the page marks with data-video-host-keep stays in view above an open video. The app
-// needs to know where on the screen it ends, and when the user presses it.
+// needs to know where on the screen it ends, and where what it has opened out of itself ends:
+// a menu under a header shows over the video while it is open.
 const KEEP = "[data-video-host-keep]";
 let told;
 let measuring = false;
@@ -32,16 +33,23 @@ function measure() {
   measuring = false;
   const kept = document.querySelectorAll(KEEP);
   let bottom = 0;
-  for (const part of kept)
-    bottom = Math.max(bottom, part.getBoundingClientRect().bottom);
+  let over = 0;
+  for (const part of kept) {
+    const place = part.getBoundingClientRect();
+    bottom = Math.max(bottom, place.bottom);
+    // What hangs out of the part counts into how far its content reaches.
+    over = Math.max(over, place.top + part.clientTop + part.scrollHeight);
+  }
   // In pixels of the screen, also while the page is zoomed by a pinch.
   const view = window.visualViewport;
-  const edge = Math.max(
-    0,
-    Math.round(
-      (bottom - (view?.offsetTop ?? 0)) * (view?.scale ?? 1) * devicePixelRatio
-    )
-  );
+  const onScreen = (y) =>
+    Math.max(
+      0,
+      Math.round(
+        (y - (view?.offsetTop ?? 0)) * (view?.scale ?? 1) * devicePixelRatio
+      )
+    );
+  const edges = { bottom: onScreen(bottom), over: onScreen(over) };
   // Watching a part reports its size once more: only start with the parts that are new.
   for (const part of watched) {
     if (part.isConnected && part.matches(KEEP)) continue;
@@ -53,9 +61,10 @@ function measure() {
     sizes.observe(part);
     watched.add(part);
   }
-  if (edge === told) return;
-  told = edge;
-  tellApp({ type: "keep", bottom: edge });
+  const report = `${edges.bottom} ${edges.over}`;
+  if (report === told) return;
+  told = report;
+  tellApp({ type: "keep", ...edges });
 }
 
 // A timer, not the next frame: behind a video that covers it, the page draws no frames.
@@ -79,13 +88,3 @@ window.addEventListener("scroll", measureSoon, {
 window.visualViewport?.addEventListener("resize", measureSoon);
 window.visualViewport?.addEventListener("scroll", measureSoon);
 measureSoon();
-
-// Only a press by the user counts, not a click the page makes up. The page still gets the click.
-window.addEventListener(
-  "click",
-  (event) => {
-    if (event.isTrusted && event.target?.closest?.(KEEP))
-      tellApp({ type: "keep-pressed" });
-  },
-  true
-);

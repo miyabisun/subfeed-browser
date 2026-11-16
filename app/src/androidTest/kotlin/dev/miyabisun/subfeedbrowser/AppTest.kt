@@ -2,6 +2,7 @@ package dev.miyabisun.subfeedbrowser
 
 import android.app.Activity
 import android.app.Instrumentation
+import android.app.UiAutomation
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -22,6 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +45,9 @@ class AppTest {
     private lateinit var browser: Browser
     private lateinit var leavingTheApp: Instrumentation.ActivityMonitor
     private var scenario: ActivityScenario<MainActivity>? = null
+
+    // How many pixels of the screen one of the page's pixels takes, as the engine counts them.
+    private var ratio = 1.0
 
     @Before
     fun setUp() {
@@ -97,30 +102,103 @@ class AppTest {
         feed.keep(120)
         await("the video to follow the header") { videoTop() == pixels(120) }
 
+        feed.menu(200)
+        await("the video to make room for the menu of the header") { videoTop() == pixels(320) }
+        feed.menu(0)
+        await("the video back under the header") { videoTop() == pixels(120) }
+
         feed.keep(0)
         await("the video over the whole screen") { videoTop() == 0 }
         assertTrue(shows(R.id.video) && !shows(R.id.feed))
     }
 
     @Test
-    fun returnsToTheListWhenItsHeaderIsPressed() {
+    fun staysOnTheVideoWhenTheHeaderIsPressedAndShowsTheListWhenItMoves() {
         val page = openFeed()
         feed.keep(56)
         feed.click("open-0")
         await("the video below the header") { videoTop() == pixels(56) }
 
-        feed.click("header")
-        assertEquals("a click the page makes up is no press", 1, feed.report().presses)
-        assertEquals(Screen.VIDEO, onMain { browser.front })
-
         touch(pixels(56) / 2f)
+        assertEquals("the page got the press", 1, feed.report().presses)
+        stays("on the video") { browser.front == Screen.VIDEO }
+
+        feed.go("group")
         await("the list in front") { browser.front == Screen.FEED }
-        assertEquals("the page got the press too, and was not loaded again", page.copy(presses = 2), feed.report())
+        assertEquals("the list was not loaded again", page.instance, feed.report().instance)
         assertTrue(shows(R.id.feed) && !shows(R.id.video))
+    }
 
+    @Test
+    fun opensAGoogleWindowOfTheListInsideTheApp() {
+        val page = openFeed()
+        tap("google-window")
+        await("Google's page in a window of the app") { browser.popupUrl.contains("accounts.google.com") }
+        assertTrue("it covers the list", shows(R.id.popup) && !shows(R.id.feed))
+        await("the window closed") { backUnlessClosed() }
+        assertEquals(Screen.FEED, onMain { browser.front })
+        assertTrue(shows(R.id.feed) && !shows(R.id.popup))
+
+        // From the header above a video: the window opens over the video, and closes back to it.
+        feed.keep(56)
+        feed.click("open-0")
+        await("the video below the header") { videoTop() == pixels(56) }
+        feed.raise("google-window")
         touch(pixels(56) / 2f)
-        assertEquals(3, feed.report().presses)
-        assertEquals("a press on the header of the list alone changes nothing", Screen.FEED, onMain { browser.front })
+        feed.lower("google-window")
+        await("Google's page in a window of the app") { browser.popupUrl.contains("accounts.google.com") }
+        assertTrue("it covers the video too", shows(R.id.popup) && !shows(R.id.video) && !shows(R.id.feed))
+        await("the window closed") { backUnlessClosed() }
+        assertEquals("the video is still open", Screen.VIDEO, onMain { browser.front })
+        assertEquals(pixels(56), videoTop())
+
+        assertEquals("the list was not loaded again", page.instance, feed.report().instance)
+        assertEquals("nothing left the app", 0, leavingTheApp.hits)
+    }
+
+    @Test
+    fun letsTheUserPickFromASelectOfTheList() {
+        val page = openFeed()
+        tap("group")
+        await("the choices") { activity().asking?.isShowing == true }
+        val shown =
+            onMain {
+                activity().asking!!.listView.adapter.let { lines ->
+                    List(lines.count) { lines.getItem(it) }
+                }
+            }
+        assertEquals(listOf<Any?>("all", "one", "two"), shown)
+        onMain { activity().asking!!.listView.run { performItemClick(getChildAt(2), 2, 2) } }
+        await("the choices gone") { activity().asking == null }
+        assertEquals("the page got the choice", page.copy(group = "2"), feed.report())
+
+        tap("group")
+        await("the choices") { activity().asking?.isShowing == true }
+        onMain { activity().asking!!.cancel() }
+        await("the choices gone") { activity().asking == null }
+        assertEquals("closed without a choice, the page keeps what it had", page.copy(group = "2"), feed.report())
+    }
+
+    @Test
+    fun givesAVideoTheWholeScreenOfAPhoneOnItsSide() {
+        assumeTrue("a phone", context.resources.configuration.smallestScreenWidthDp < 600)
+        openFeed()
+        feed.keep(56)
+        // The device itself is turned: the engine lets go of an orientation the Activity asks for.
+        val device = instrumentation.uiAutomation
+        try {
+            device.setRotation(UiAutomation.ROTATION_FREEZE_90)
+            feed.click("open-0")
+            await("the page to ask for the whole screen") { browser.video?.stage == true }
+            await("the video over the whole screen") { browser.immersive && videoTop() == 0 }
+            assertTrue("the header of the list is out of the way", shows(R.id.video) && !shows(R.id.feed))
+            assertTrue("there is nothing to pull at", !onMain { browser.pulls })
+
+            device.setRotation(UiAutomation.ROTATION_FREEZE_0)
+            await("the page under the header again") { browser.video?.stage == false && videoTop() == pixels(56) }
+        } finally {
+            device.setRotation(UiAutomation.ROTATION_FREEZE_0)
+        }
     }
 
     @Test
@@ -366,7 +444,7 @@ class AppTest {
         feed.start()
         settings.feedUrl = feed.url
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        return feed.report()
+        return feed.report().also { ratio = it.ratio }
     }
 
     private fun save(
@@ -508,12 +586,19 @@ class AppTest {
     private fun View.topOnScreen() = IntArray(2).also(::getLocationOnScreen)[1]
 
     /** A length in the page's pixels, in pixels of the screen. */
-    private fun pixels(length: Int) = (length * context.resources.displayMetrics.density).roundToInt()
+    private fun pixels(length: Int) = (length * ratio).roundToInt()
 
     private fun back() = instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
 
     private fun backUnlessOnFeed(): Boolean {
-        if (browser.front == Screen.FEED) return true
+        if (browser.popup == null && browser.front == Screen.FEED) return true
+        browser.back()
+        return false
+    }
+
+    /** Google's page may have gone from one address to another: back walks through them first. */
+    private fun backUnlessClosed(): Boolean {
+        if (browser.popup == null) return true
         browser.back()
         return false
     }
@@ -566,6 +651,7 @@ class AppTest {
     }
 
     private val Browser.videoUrl get() = video?.url.orEmpty()
+    private val Browser.popupUrl get() = popup?.url.orEmpty()
 
     private companion object {
         /** A network the device is not on, to tell the app that its network changed. */

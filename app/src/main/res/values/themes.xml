@@ -3,6 +3,8 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/background</item>
+        <!-- A video that has the whole screen is centred on the screen itself, around the camera. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
         <item name="android:windowLightStatusBar">@bool/light_bars</item>
         <item name="android:windowLightNavigationBar">@bool/light_bars</item>
         <item name="android:colorAccent">@color/accent</item>

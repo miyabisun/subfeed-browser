@@ -27,50 +27,93 @@ class KeepTest {
 
     @Test
     fun keepsTheListDownToTheReportedEdge() {
-        assertEquals(96, keptAbove(bottom = 96, height = 2000, fullScreen = false))
-        assertEquals("up to a fifth of the screen", 400, keptAbove(bottom = 400, height = 2000, fullScreen = false))
+        assertEquals(96, keptAbove(bottom = 96, over = 96, height = 2000, immersive = false))
+        assertEquals(
+            "up to a fifth of the screen",
+            400,
+            keptAbove(bottom = 400, over = 400, height = 2000, immersive = false),
+        )
     }
 
     @Test
     fun givesYouTubeTheWholeScreenWhenNothingIsKept() {
-        assertEquals(0, keptAbove(bottom = 0, height = 2000, fullScreen = false))
+        assertEquals(0, keptAbove(bottom = 0, over = 0, height = 2000, immersive = false))
     }
 
     @Test
-    fun givesAFullScreenVideoTheWholeScreen() {
-        assertEquals(0, keptAbove(bottom = 96, height = 2000, fullScreen = true))
+    fun givesAVideoThatFillsTheScreenTheWholeScreen() {
+        assertEquals(0, keptAbove(bottom = 96, over = 96, height = 2000, immersive = true))
+        assertEquals(
+            "a menu left open behind it too",
+            0,
+            keptAbove(bottom = 96, over = 700, height = 2000, immersive = true),
+        )
     }
 
     @Test
     fun givesYouTubeTheWholeScreenRatherThanTooLittleOfIt() {
-        assertEquals(0, keptAbove(bottom = 401, height = 2000, fullScreen = false))
+        assertEquals(0, keptAbove(bottom = 401, over = 401, height = 2000, immersive = false))
         assertEquals(
             "a keyboard over a screen on its side leaves a strip",
             0,
-            keptAbove(bottom = 111, height = 250, fullScreen = false),
+            keptAbove(bottom = 111, over = 111, height = 250, immersive = false),
         )
-        assertEquals("before the screen is laid out", 0, keptAbove(bottom = 96, height = 0, fullScreen = false))
+        assertEquals(
+            "before the screen is laid out",
+            0,
+            keptAbove(bottom = 96, over = 96, height = 0, immersive = false),
+        )
         assertEquals(
             "a list that claims more than any screen has",
             0,
-            keptAbove(bottom = Int.MAX_VALUE, height = 2000, fullScreen = false),
+            keptAbove(bottom = Int.MAX_VALUE, over = Int.MAX_VALUE, height = 2000, immersive = false),
         )
     }
 
     @Test
-    fun closesYouTubeWhenTheKeptPartIsPressed() {
-        assertTrue(closesVideo("keep-pressed", Screen.VIDEO, fullScreen = false))
+    fun makesRoomForWhatTheKeptPartOpens() {
+        assertEquals(
+            "a menu under the header",
+            760,
+            keptAbove(bottom = 96, over = 760, height = 2000, immersive = false),
+        )
+        assertEquals(
+            "more than a fifth: it is open only for a moment",
+            1500,
+            keptAbove(bottom = 96, over = 1500, height = 2000, immersive = false),
+        )
+        assertEquals(
+            "no further than the screen",
+            2000,
+            keptAbove(bottom = 96, over = 2600, height = 2000, immersive = false),
+        )
+        assertEquals(
+            "a report from an older page that names no such edge",
+            96,
+            keptAbove(bottom = 96, over = 0, height = 2000, immersive = false),
+        )
     }
 
     @Test
-    fun leavesTheScreenAloneOtherwise() {
-        assertFalse("the list is in front already", closesVideo("keep-pressed", Screen.FEED, fullScreen = false))
+    fun opensNothingOutOfAHeaderThatIsNotKept() {
+        assertEquals(0, keptAbove(bottom = 401, over = 900, height = 2000, immersive = false))
+        assertEquals(0, keptAbove(bottom = 0, over = 900, height = 2000, immersive = false))
+    }
+
+    @Test
+    fun showsTheListWhenItMovesToAnotherPage() {
+        assertTrue(listMoved(Screen.VIDEO, "https://feed.example/", "https://feed.example/group/3"))
+        assertTrue(listMoved(Screen.VIDEO, "https://feed.example/group/3", "https://feed.example/channels"))
+    }
+
+    @Test
+    fun leavesTheVideoInFrontOtherwise() {
         assertFalse(
-            "nothing of the list shows around a full-screen video",
-            closesVideo("keep-pressed", Screen.VIDEO, fullScreen = true),
+            "the list is in front already",
+            listMoved(Screen.FEED, "https://feed.example/", "https://feed.example/group/3"),
         )
-        assertFalse(closesVideo("keep", Screen.VIDEO, fullScreen = false))
-        assertFalse(closesVideo("open-video", Screen.VIDEO, fullScreen = false))
-        assertFalse(closesVideo(null, Screen.VIDEO, fullScreen = false))
+        assertFalse("the same page", listMoved(Screen.VIDEO, "https://feed.example/", "https://feed.example/"))
+        assertFalse("its first page", listMoved(Screen.VIDEO, null, "https://feed.example/"))
+        assertFalse(listMoved(Screen.VIDEO, "https://feed.example/", null))
     }
 }
