@@ -29,6 +29,7 @@
         "pull.js",
         "stage.js",
         "invitation.js",
+        "handle.js",
         "youtube.js"
       ]
     }

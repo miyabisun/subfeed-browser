@@ -50,6 +50,30 @@ function markOpenApp(root) {
     marked.add(entry);
   }
 }
+
+// YouTube shows a channel's handle as it stands in the channel's address, escapes and all.
+// handle.js reads it; what the user is writing stays as written.
+const ESCAPE = /%[0-9a-f]{2}/i;
+// A handle is short. A script of the page is text too, and long: it is not read for one.
+const HANDLE_AT_MOST = 300;
+function saidBefore(text) {
+  // The "@" may stand in an element of its own, beside the one that holds the name.
+  let node = text;
+  for (let up = 0; node && !node.previousSibling && up < 3; up++)
+    node = node.parentNode;
+  return node?.previousSibling?.textContent ?? "";
+}
+function readHandles(root) {
+  const texts = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let text = root.nodeType === Node.TEXT_NODE ? root : texts.nextNode();
+  for (; text; text = texts.nextNode()) {
+    if (text.data.length > HANDLE_AT_MOST || !ESCAPE.test(text.data)) continue;
+    if (text.parentElement?.isContentEditable) continue;
+    const readable = readableHandle(text.data, saidBefore(text));
+    if (readable !== null) text.data = readable;
+  }
+}
+
 new MutationObserver((changes) => {
   // YouTube fills a page in piece by piece and reuses its elements: what said nothing else a
   // moment ago may hold more now, to read or to press. Look at each mark again.
@@ -58,8 +82,14 @@ new MutationObserver((changes) => {
   for (const entry of before) entry.removeAttribute("data-open-app");
   for (const entry of before) if (entry.isConnected) markOpenApp(entry);
   for (const change of changes) {
-    if (change.type === "characterData") markOpenApp(change.target);
-    for (const node of change.addedNodes) markOpenApp(node);
+    if (change.type === "characterData") {
+      markOpenApp(change.target);
+      readHandles(change.target);
+    }
+    for (const node of change.addedNodes) {
+      markOpenApp(node);
+      readHandles(node);
+    }
   }
   lookAtCommentsSoon();
   lookAtPageSoon();
