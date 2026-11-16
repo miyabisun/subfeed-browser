@@ -57,7 +57,73 @@ new MutationObserver((changes) => {
     if (change.type === "characterData") markOpenApp(change.target);
     for (const node of change.addedNodes) markOpenApp(node);
   }
+  lookAtCommentsSoon();
 }).observe(document, { subtree: true, childList: true, characterData: true });
+
+// On a wide screen YouTube keeps a column free beside a video, for the recommendations this app
+// removes. Open the comments there: press the way into them, as the user would. comments.js
+// decides when; what is noted here is about one video and starts over with the next.
+const COMMENTS_BOX = "yt-video-metadata-carousel-view-model";
+const comments = { video: null, seen: false, presses: 0, pressedAt: 0 };
+let commentsLook = 0;
+function showing(element) {
+  return (
+    element.getClientRects().length > 0 &&
+    getComputedStyle(element).visibility !== "hidden"
+  );
+}
+function lookAtComments() {
+  commentsLook = 0;
+  const video = new URLSearchParams(location.search).get("v");
+  const watch =
+    location.pathname === "/watch" && document.querySelector("ytm-watch");
+  const beside = watch ? parseFloat(getComputedStyle(watch).marginRight) : 0;
+  // youtube.css keeps a pull inside the panel in that column from reading the page again.
+  document.documentElement.toggleAttribute("data-comments-beside", beside > 0);
+  if (video !== comments.video) {
+    // YouTube changes videos without loading a page. What shows now may still be the last
+    // one's: look again in a moment.
+    Object.assign(comments, { video, seen: false, presses: 0, pressedAt: 0 });
+    return lookAtCommentsSoon();
+  }
+  if (!watch) return;
+  const panels = [...document.querySelectorAll("ytm-engagement-panel")].filter(
+    showing
+  );
+  if (
+    panels.some((panel) =>
+      panel.querySelector(".engagement-panel-comments-section")
+    )
+  )
+    comments.seen = true;
+  const entry = [...document.querySelectorAll(COMMENTS_BOX)].find(
+    (box) =>
+      showing(box) &&
+      leadsToComments([...box.querySelectorAll("*")].map((e) => e.localName))
+  );
+  const open = opensComments({
+    path: location.pathname,
+    beside,
+    fullScreen: document.fullscreenElement !== null,
+    entry: entry !== undefined,
+    panel: panels.length > 0,
+    seen: comments.seen,
+    presses: comments.presses,
+    sincePress: Date.now() - comments.pressedAt,
+  });
+  if (!open) return;
+  comments.presses++;
+  comments.pressedAt = Date.now();
+  entry.click();
+  // If nothing shows, comments.js may want another press.
+  setTimeout(lookAtCommentsSoon, PRESS_AGAIN_AFTER);
+}
+function lookAtCommentsSoon() {
+  commentsLook ||= setTimeout(lookAtComments, 250);
+}
+// Turning the device changes the columns without changing the page.
+window.addEventListener("resize", lookAtCommentsSoon);
+document.addEventListener("fullscreenchange", lookAtCommentsSoon);
 
 // YouTube's logo leads to its home, away from the video the list opened. It stays to look at,
 // but a press on it goes nowhere. YouTube builds its top bar differently signed in and signed

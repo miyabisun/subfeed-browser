@@ -31,3 +31,15 @@ ytm-watch .related-items-container,
 ytm-item-section-renderer[section-identifier="related-items"] {
   display: none !important;
 }
+
+/* Beside a video on a wide screen (youtube.js marks it), a pull down inside the panel there
+   moves the panel only. Without this, the app takes a pull from the top of the comments for a
+   pull on the page and reads the page again. */
+html[data-comments-beside] ytm-engagement-panel {
+  touch-action: pinch-zoom;
+}
+html[data-comments-beside]
+  ytm-engagement-panel
+  .engagement-panel-content-wrapper {
+  overscroll-behavior-y: contain;
+}

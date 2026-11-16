@@ -24,7 +24,7 @@
       "matches": ["*://*.youtube.com/*"],
       "css": ["youtube.css"],
       "run_at": "document_start",
-      "js": ["youtube.js"]
+      "js": ["comments.js", "youtube.js"]
     }
   ],
   "permissions": [

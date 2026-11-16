@@ -20,12 +20,23 @@ spotless {
         ktlint(libs.versions.ktlint.get())
     }
     format("extension") {
-        target("app/src/main/assets/**/*.js", "app/src/main/assets/**/*.css", "app/src/main/assets/**/*.json")
+        target(
+            "app/src/main/assets/**/*.js",
+            "app/src/main/assets/**/*.css",
+            "app/src/main/assets/**/*.json",
+            "app/src/test/js/**/*.js",
+        )
         prettier()
     }
 }
 
+// The decisions the extension makes in the page are plain functions, tested with Node's own runner.
+val extensionTest =
+    tasks.register<Exec>("extensionTest") {
+        commandLine("node", "--test", "app/src/test/js/*.test.js")
+    }
+
 // The one command to run before a commit: formatter check, lint, unit tests and the build.
 tasks.register("verify") {
-    dependsOn("spotlessCheck", ":app:lintDebug", ":app:testDebugUnitTest", ":app:assembleDebug")
+    dependsOn("spotlessCheck", ":app:lintDebug", ":app:testDebugUnitTest", extensionTest, ":app:assembleDebug")
 }
