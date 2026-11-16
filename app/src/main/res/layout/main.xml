@@ -5,11 +5,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <org.mozilla.geckoview.GeckoView
-        android:id="@+id/video"
+    <dev.miyabisun.subfeedbrowser.PullLayout
+        android:id="@+id/pull"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="invisible" />
+        android:visibility="invisible">
+
+        <org.mozilla.geckoview.GeckoView
+            android:id="@+id/video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="invisible" />
+    </dev.miyabisun.subfeedbrowser.PullLayout>
 
     <ProgressBar
         android:id="@+id/progress"

@@ -33,6 +33,9 @@ class Page(
     var progress = 100
     var failure: Failure? = null
     var turnedAway = false
+
+    /** The user pulled the page down to read it again, and that load is not over. */
+    var reloading = false
 }
 
 /**
@@ -71,6 +74,9 @@ class Browser private constructor(
     var front = Screen.FEED
         private set
     val frontPage get() = video?.takeIf { front == Screen.VIDEO } ?: feed
+
+    /** Whether pulling the page in front down from its top reads it again now. */
+    val pulls get() = frontPage.run { reloadsOnPull(screen, fullScreen, reloading || progress < 100, url) }
 
     /** Where the part of the list that stays in view above a video ends, as the list reported it. */
     var keep = 0
@@ -162,6 +168,16 @@ class Browser private constructor(
     /** Load the page in front again after it failed. */
     fun retry() {
         reload(frontPage)
+        window?.render()
+    }
+
+    /** The user pulled the page in front down from its top and let go. Adds nothing to go back to. */
+    fun pulled() {
+        val page = frontPage
+        if (pulls) {
+            page.reloading = true
+            page.session.reload()
+        }
         window?.render()
     }
 
@@ -310,6 +326,7 @@ class Browser private constructor(
                 ) {
                     // A load that ends early never reports the last of its progress.
                     page.progress = 100
+                    page.reloading = false
                     window?.render()
                 }
 
@@ -338,6 +355,7 @@ class Browser private constructor(
                 // The engine closed the session; bring its page back.
                 private fun reopen() {
                     page.fullScreen = false
+                    page.reloading = false
                     session.open(runtime)
                     page.url?.let(session::loadUri)
                     activate()

@@ -25,6 +25,8 @@
       <a id="new-window" href="https://example.com/" target="_blank">new window</a>
       <button id="shorts">shorts</button>
       <button id="no-such-video">no such video</button>
+      <button id="channel">channel</button>
+      <button id="sign-in">sign in</button>
     </div>
     <script>
       const VIDEOS = ["aqz-KE-bpKQ", "eRsGyueVLvQ", "R6MlUcmOul8"];
@@ -64,6 +66,12 @@
       document.getElementById("no-such-video").onclick = () =>
         send({ source: "youtube-sub-feed", type: "open-video", id: VIDEOS[0], url: `https://no-such-host.youtube.com/watch?v=${VIDEOS[0]}` });
 
+      // A YouTube page long enough to scroll, and the way to Google's sign-in page.
+      document.getElementById("channel").onclick = () =>
+        send({ source: "youtube-sub-feed", type: "open-video", id: "x", url: "https://www.youtube.com/@BlenderOfficial/videos" });
+      document.getElementById("sign-in").onclick = () =>
+        send({ source: "youtube-sub-feed", type: "open-video", id: "x", url: "https://www.youtube.com/signin" });
+
       // Counts the times this page was loaded on this device: it only grows if cookies survive a restart.
       const visits = Number(/(?:^|; )visits=(\d+)/.exec(document.cookie)?.[1] ?? 0) + 1;
       document.cookie = `visits=${visits}; max-age=31536000; path=/`;
@@ -72,6 +80,15 @@
       const header = document.getElementById("header");
       let presses = 0;
       header.addEventListener("click", () => presses++);
+
+      // The page counts the pulls down from its top that reach it, as a pull-to-refresh of its own would.
+      let pulls = 0;
+      let pullFrom = null;
+      addEventListener("touchstart", (event) => (pullFrom = scrollY === 0 ? event.touches[0].clientY : null));
+      addEventListener("touchend", (event) => {
+        if (pullFrom !== null && event.changedTouches[0].clientY - pullFrom > 100) pulls++;
+        pullFrom = null;
+      });
 
       function status() {
         const host = document.documentElement.dataset.videoHost ?? "none";
@@ -87,7 +104,7 @@
       if (location.search.includes("driven")) {
         setInterval(async () => {
           const host = document.documentElement.dataset.videoHost ?? "";
-          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}&presses=${presses}`);
+          const response = await fetch(`/command?instance=${instance}&y=${Math.round(scrollY)}&host=${host}&presses=${presses}&pulls=${pulls}`);
           const command = await response.json();
           if (command.scrollTo !== undefined) scrollTo(0, command.scrollTo);
           if (command.click) document.getElementById(command.click).click();

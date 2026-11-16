@@ -25,7 +25,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mozilla.geckoview.GeckoSession
 import java.net.ServerSocket
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 /**
@@ -119,6 +121,80 @@ class AppTest {
         touch(pixels(56) / 2f)
         assertEquals(3, feed.report().presses)
         assertEquals("a press on the header of the list alone changes nothing", Screen.FEED, onMain { browser.front })
+    }
+
+    @Test
+    fun readsAYouTubePageAgainWhenItIsPulledDownFromItsTop() {
+        val page = openFeed()
+        feed.keep(56)
+        feed.click("channel")
+        await("the page") { browser.pulls }
+        val address = onMain { browser.videoUrl }
+        val goesBack = onMain { browser.video?.canGoBack }
+        val loads = countLoads()
+
+        // Pulled twice in a row: the second pull finds the page being read again.
+        swipe(R.id.video, from = 0.4f, to = 0.8f, times = 2)
+        await("the page read again") { loads.started.get() > 0 && browser.pulls && !refreshing() }
+        assertEquals("a pull while it is read again does not read it once more", 1, loads.started.get())
+        assertTrue("the indicator turned while it loaded", loads.indicatorTurned)
+        assertEquals("the same page", address, onMain { browser.videoUrl })
+        assertEquals("nothing was added to go back to", goesBack, onMain { browser.video?.canGoBack })
+        assertEquals("the header of the list stays", pixels(56), videoTop())
+
+        // Read on, and a pull only scrolls the page back up. A page that has just loaded
+        // takes a moment before it has anything to scroll.
+        val scrolled = AtomicInteger()
+        onMain {
+            browser.video?.session?.scrollDelegate =
+                object : GeckoSession.ScrollDelegate {
+                    override fun onScrollChanged(
+                        session: GeckoSession,
+                        scrollX: Int,
+                        scrollY: Int,
+                    ) = scrolled.set(scrollY)
+                }
+        }
+        val giveUp = System.currentTimeMillis() + 40_000
+        while (scrolled.get() == 0) {
+            assertTrue("timed out waiting for the page to scroll", System.currentTimeMillis() < giveUp)
+            swipe(R.id.video, from = 0.8f, to = 0.2f)
+            Thread.sleep(1_000)
+        }
+        swipe(R.id.video, from = 0.8f, to = 0.2f)
+        swipe(R.id.video, from = 0.4f, to = 0.7f)
+        assertTrue("the page is still further down", scrolled.get() > 0)
+        stays("a page that is not read again") { loads.started.get() == 1 && !refreshing() }
+        assertEquals("the list was not loaded again", page.instance, feed.report().instance)
+    }
+
+    @Test
+    fun leavesAPullOnASignInPageAlone() {
+        openFeed()
+        feed.click("sign-in")
+        await("Google's sign-in page") {
+            browser.videoUrl.contains("accounts.google.com") &&
+                browser.video?.progress == 100
+        }
+        assertTrue(!onMain { browser.pulls })
+
+        val loads = countLoads()
+        swipe(R.id.video, from = 0.4f, to = 0.8f)
+        stays("a page that is not read again") { loads.started.get() == 0 && !refreshing() }
+    }
+
+    @Test
+    fun leavesAPullOnTheListToItsPage() {
+        val page = openFeed()
+        // Once the YouTube screen has been in front, it must be out of the way again.
+        feed.click("open-0")
+        await("the video") { browser.videoUrl.contains("youtube.com/watch?v=aqz-KE-bpKQ") }
+        back()
+        await("the list in front") { browser.front == Screen.FEED }
+
+        swipe(R.id.feed, from = 0.4f, to = 0.8f)
+        assertEquals("the page got the pull, and was not loaded again", page.copy(pulls = 1), feed.report())
+        assertTrue(!onMain { refreshing() })
     }
 
     @Test
@@ -330,12 +406,106 @@ class AppTest {
         }
     }
 
+    /** Drag a finger down or up the middle of a screen, between two heights given as shares of its own. */
+    private fun swipe(
+        id: Int,
+        from: Float,
+        to: Float,
+        times: Int = 1,
+    ) {
+        val at = IntArray(2)
+        var width = 0
+        var height = 0
+        onActivity {
+            val view = it.findViewById<View>(id)
+            view.getLocationOnScreen(at)
+            width = view.width
+            height = view.height
+        }
+        var down = 0L
+
+        fun send(
+            action: Int,
+            share: Float,
+        ) {
+            val event =
+                MotionEvent.obtain(
+                    down,
+                    SystemClock.uptimeMillis(),
+                    action,
+                    at[0] + width / 2f,
+                    at[1] + height * share,
+                    0,
+                )
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            instrumentation.sendPointerSync(event)
+            event.recycle()
+        }
+        repeat(times) {
+            down = SystemClock.uptimeMillis()
+            send(MotionEvent.ACTION_DOWN, from)
+            for (step in 1..SWIPE_STEPS) {
+                // A finger takes its time: the engine answers what a touch is while it moves.
+                Thread.sleep(20)
+                send(MotionEvent.ACTION_MOVE, from + (to - from) * step / SWIPE_STEPS)
+            }
+            send(MotionEvent.ACTION_UP, to)
+        }
+    }
+
+    /** The loads the YouTube screen started, and whether the pull-to-refresh indicator turned as one did. */
+    private class Loads {
+        val started = AtomicInteger()
+
+        @Volatile
+        var indicatorTurned = false
+    }
+
+    /** Watches the loads the YouTube screen starts from now on. */
+    private fun countLoads(): Loads {
+        val loads = Loads()
+        onMain {
+            val session = browser.video!!.session
+            val app = session.progressDelegate!!
+            session.progressDelegate =
+                object : GeckoSession.ProgressDelegate {
+                    override fun onPageStart(
+                        session: GeckoSession,
+                        url: String,
+                    ) {
+                        loads.started.incrementAndGet()
+                        loads.indicatorTurned = refreshing()
+                        app.onPageStart(session, url)
+                    }
+
+                    override fun onPageStop(
+                        session: GeckoSession,
+                        success: Boolean,
+                    ) = app.onPageStop(session, success)
+
+                    override fun onProgressChange(
+                        session: GeckoSession,
+                        progress: Int,
+                    ) = app.onProgressChange(session, progress)
+                }
+        }
+        return loads
+    }
+
+    /** Whether the pull-to-refresh indicator of the YouTube screen turns. Call it on the main thread. */
+    private fun refreshing() = activity().findViewById<PullLayout>(R.id.pull).isRefreshing
+
     /** How far below the list's top the YouTube screen starts. */
     private fun videoTop(): Int {
         var top = 0
-        onActivity { top = it.findViewById<View>(R.id.video).top - it.findViewById<View>(R.id.feed).top }
+        onActivity {
+            top =
+                it.findViewById<View>(R.id.video).topOnScreen() - it.findViewById<View>(R.id.feed).topOnScreen()
+        }
         return top
     }
+
+    private fun View.topOnScreen() = IntArray(2).also(::getLocationOnScreen)[1]
 
     /** A length in the page's pixels, in pixels of the screen. */
     private fun pixels(length: Int) = (length * context.resources.displayMetrics.density).roundToInt()
@@ -367,6 +537,22 @@ class AppTest {
         return value as T
     }
 
+    /** Watch for a while that something a pull must not start does not start. */
+    private fun stays(
+        what: String,
+        condition: () -> Boolean,
+    ) = repeat(15) {
+        assertTrue("it did not stay $what", onMain(condition))
+        Thread.sleep(200)
+    }
+
+    /** The Activity in front. Call it on the main thread. */
+    private fun activity(): MainActivity {
+        lateinit var front: MainActivity
+        scenario!!.onActivity { front = it }
+        return front
+    }
+
     /** Wait for something that depends on the network or on the engine. */
     private fun await(
         what: String,
@@ -384,5 +570,7 @@ class AppTest {
     private companion object {
         /** A network the device is not on, to tell the app that its network changed. */
         val ANOTHER_NETWORK = Link(network = -1, transports = emptySet(), validated = false)
+
+        const val SWIPE_STEPS = 20
     }
 }

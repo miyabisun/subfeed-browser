@@ -21,6 +21,8 @@ class FakeFeed {
         val videoHost: String,
         /** The clicks its header got, pressed by the user or made up by a script. */
         val presses: Int = 0,
+        /** The pulls down from its top that reached the page. */
+        val pulls: Int = 0,
     )
 
     private var server = MockWebServer()
@@ -54,6 +56,7 @@ class FakeFeed {
                                     address.queryParameter("y")?.toIntOrNull() ?: -1,
                                     address.queryParameter("host").orEmpty(),
                                     address.queryParameter("presses")?.toIntOrNull() ?: 0,
+                                    address.queryParameter("pulls")?.toIntOrNull() ?: 0,
                                 )
                             MockResponse()
                                 .setHeader(

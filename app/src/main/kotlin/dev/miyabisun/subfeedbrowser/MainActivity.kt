@@ -32,6 +32,7 @@ class MainActivity :
     private lateinit var root: View
     private lateinit var feedView: GeckoView
     private lateinit var videoView: GeckoView
+    private lateinit var pull: PullLayout
     private lateinit var progress: ProgressBar
     private lateinit var failure: View
     private lateinit var failureReason: TextView
@@ -52,6 +53,7 @@ class MainActivity :
         root = findViewById(android.R.id.content)
         feedView = findViewById(R.id.feed)
         videoView = findViewById(R.id.video)
+        pull = findViewById(R.id.pull)
         progress = findViewById(R.id.progress)
         failure = findViewById(R.id.failure)
         failureReason = findViewById(R.id.failure_reason)
@@ -68,6 +70,9 @@ class MainActivity :
         feedView.addOnLayoutChangeListener { view, _, top, _, bottom, _, oldTop, _, oldBottom ->
             if (bottom - top != oldBottom - oldTop) view.post(::render)
         }
+        pull.setColorSchemeColors(getColor(R.color.accent))
+        pull.setProgressBackgroundColorSchemeColor(getColor(R.color.surface))
+        pull.setOnRefreshListener { browser.pulled() }
         findViewById<Button>(R.id.retry).setOnClickListener { browser.retry() }
         changeUrl.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -128,7 +133,12 @@ class MainActivity :
         val kept = if (video) keptAbove(browser.keep, feedView.height, page.fullScreen) else 0
         show(feedView, browser.feed.session, !video || kept > 0)
         show(videoView, browser.video?.session, video)
-        for (view in listOf(videoView, progress, failure)) lower(view, kept)
+        pull.visibility = videoView.visibility
+        for (view in listOf(pull, progress, failure)) lower(view, kept)
+        // The indicator turns until the page is read again; the layout takes no pull meanwhile.
+        val pulls = browser.pulls || page.reloading
+        if (pull.isEnabled != pulls) pull.isEnabled = pulls
+        pull.isRefreshing = page.reloading
         if (focused != page.screen) {
             // The keyboard types into the page in front, though the list may still show above it.
             focused = page.screen

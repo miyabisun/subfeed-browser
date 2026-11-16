@@ -45,6 +45,7 @@ android {
 
 dependencies {
     implementation(libs.geckoview.map { "${it.module.group}:geckoview-$abi:${it.version}" })
+    implementation(libs.androidx.swiperefreshlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.junit)
