@@ -32,6 +32,14 @@ ytm-item-section-renderer[section-identifier="related-items"] {
   display: none !important;
 }
 
+/* Signed in, the recommendations come with a bar of chips. For it YouTube slides what is above
+   them up by the bar's height once they are scrolled under the player. Removed, they measure as
+   scrolled past whenever the page changes size (the device turns, a keyboard opens), and the
+   title went under the player for a bar that never shows. */
+.related-chips-slot-wrapper {
+  transform: translateY(0) !important;
+}
+
 /* Beside a video on a wide screen (youtube.js marks it), a pull down inside the panel there
    moves the panel only. Without this, the app takes a pull from the top of the comments for a
    pull on the page and reads the page again. */
